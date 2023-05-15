@@ -3,6 +3,7 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include <string>
+#include <iostream>
 
 
 
@@ -46,10 +47,8 @@ enum Token {
     tok_uintnum= -101, // unsigned int NUM
 };
 
-int LastChar = ' ';
-std::string IdentifierStr;
-int NumVal;
-int CurTok;
+
+
 int gettok();
 int getNextToken();
 

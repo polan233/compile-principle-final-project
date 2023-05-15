@@ -2,6 +2,9 @@
 
 using namespace std;
 
+std::string IdentifierStr;
+int NumVal;
+int CurTok;
 int ch=' ';
 int cc,ll;
 char line[MAXLINE];
@@ -44,71 +47,80 @@ void getch(){
     ch=line[cc];
     cc++;
 }
-int getNextChar(){
-    getch();
-    return ch;
-}
+
 
 // my lexer
 int gettok(){
-
-    //skip whitespaces and tab and huan hang
-    while(isspace(LastChar)||LastChar==10||LastChar==9){
-        LastChar= getNextChar();
+    if(flag){ // the file ends
+        printf("program incomplete!");
+        return tok_illegel;
     }
 
-    if(isalpha(LastChar)){ // id and commands
-        IdentifierStr = LastChar;
-        while(isalnum((LastChar=getNextChar()))){
-            IdentifierStr += LastChar;
+    //skip whitespaces and tab and huan hang
+    while(isspace(ch)||ch==10||ch==9){
+        getch();
+        if(flag){ // the file ends
+            printf("program incomplete!");
+            return tok_illegel;
         }
+    }
 
-        if(IdentifierStr=="int")
+    if(isalpha(ch)){ // id and commands
+        IdentifierStr = ch;
+        getch();
+        while(isalnum(ch)){
+            IdentifierStr += ch;
+            getch();
+        }
+        
+        if(IdentifierStr=="int"){
             return tok_int;
+        }
         if(IdentifierStr=="bool")
-            return tok_bool;
+            {return tok_bool;}
         if(IdentifierStr=="if")
-            return tok_if;
+            {return tok_if;}
         if(IdentifierStr=="else")
-            return tok_else;
+            {return tok_else;}
         if(IdentifierStr=="while")
-            return tok_while;
+            {return tok_while;}
         if(IdentifierStr=="write")
-            return tok_write;
+            {return tok_write;}
         if(IdentifierStr=="read")
-            return tok_read;
+            {return tok_read;}
 
         return tok_identifier;
     }
 
-    if(isdigit(LastChar)){ // unsigned int NUM
+    if(isdigit(ch)){ // unsigned int NUM
         std::string NumStr;
         do{
-            NumStr += LastChar;
-            LastChar = getNextChar();
-        }while(isdigit(LastChar));
+            NumStr += ch;
+            getch();
+        }while(isdigit(ch));
         NumVal = stoi(NumStr);
         return tok_uintnum;
     }
 
     //  divide or comment
-    if(LastChar == '/'){
-        LastChar=getNextChar();
-        if(LastChar=='*'){ // comment
+    if(ch == '/'){
+        getch();
+        if(ch=='*'){ // comment
             bool commentOver=false;
             while (!commentOver) {
-                LastChar=getNextChar();
-                if(LastChar=='*'){
-                    LastChar=getNextChar();
-                    if(LastChar=='/'){
+                getch();
+                if(ch=='*'){
+                    getch();
+                    if(ch=='/'){
                         commentOver=true;
                         break;
                     }
                 }
             }
+            getch();
             //skip what's in comment block and then
             // return a token
-            if(LastChar!=EOF)
+            if(ch!=EOF)
                 return gettok();
         }
         else{ // divide
@@ -116,29 +128,127 @@ int gettok(){
         }
     }
 
-    if(LastChar=='+'){
+    if(ch=='+'){
+        getch();
         return tok_add;
     }
-    if(LastChar=='-'){
+    if(ch=='-'){
+        getch();
         return tok_sub;
     }
-    if(LastChar=='*'){
+    if(ch=='*'){
+        getch();
         return tok_mul;
     }
-    if(LastChar=='<'){ // < and <=
-        LastChar=getNextChar();
-        if(LastChar=='='){ // <=
-
+    if(ch=='<'){ // < and <=
+        getch();
+        if(ch=='='){ // <=
+            getch();
+            return tok_leq;
         }
-
-
+        else{
+            return tok_lss;
+        }
     }
-    //TO-DO: continue to finish this function
-    //maybe i should add LastChar=getNextChar(); before return
 
+    if(ch=='>') // > and >=
+    {
+        getch();
+        if(ch=='='){
+            getch();
+            return tok_geq;
+        }
+        else{
+            return tok_gtr;
+        }
+    }
 
+    if(ch=='=') // = and ==
+    {
+        getch();
+        if(ch=='='){
+            getch();
+            return tok_eql;
+        }
+        else{
+            return tok_assign;
+        }
+    }
+
+    if(ch=='!') // != and !
+    {
+        getch();
+        if(ch=='='){
+            getch();
+            return tok_neq;
+        }
+        else{
+            return tok_not;
+        }
+    }
+
+    if(ch=='|'){ // ||
+        getch();
+        if(ch=='|'){
+            getch();
+            return tok_or;
+        }
+        else{
+            return tok_illegel;
+        }
+    }
+
+    if(ch=='&'){ // &&
+        getch();
+        if(ch=='&'){
+            getch();
+            return tok_and;
+        }
+        else{
+            return tok_illegel;
+        }
+    }
+
+    if(ch==';'){
+        getch();
+        return tok_semicolon;
+    }
+    if(ch=='('){
+        getch();
+        return tok_lparen;
+    }
+    if(ch==')'){
+        getch();
+        return tok_rparen;
+    }
+    if(ch=='{'){
+        getch();
+        return tok_lbrace;
+    }
+    if(ch=='}'){
+        getch();
+        return tok_rbrace;
+    }
+
+    return tok_illegel;
 }
 
 int getNextToken(){
     return CurTok=gettok();
 }
+
+//test my lexer
+// int main(){
+//     fin= fopen("testLexerInput.txt","r");
+//     foutput = fopen("testLexerOutput.txt","w");
+//     IdentifierStr="";
+//     NumVal=0;
+//     while(ch!=EOF&&!flag){
+//         getNextToken();
+//         cout << CurTok << " ";
+//         cout << IdentifierStr << " " << NumVal << endl;
+//     }
+//     fclose(fin);
+//     fclose(foutput);
+//     return 0;
+// }

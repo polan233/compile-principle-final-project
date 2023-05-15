@@ -1,0 +1,20 @@
+/* a test program for lexer */
+{
+    int ia;
+    int ib;
+    bool bB;
+    ia=10;
+    ib=100;
+    ia=ia+ib;
+    bB=ia<=ib;
+    if(bB){
+        ib=ia/100;
+    }
+    /* aasdfhajksdlhf12312 | 1k24j9fk 
+    awjfklajfkawjgfkl
+    agkjl;kaejgk 2847528738941 ajdhfasd
+    */
+    else{
+        ia=ib*100;
+    }
+}
