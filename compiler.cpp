@@ -2,18 +2,31 @@
 #include "ui_compiler.h"
 #include <QFontDialog>
 #include <QFile>
+#include <QWidget>
+#include <QGridLayout>
 #include <QTextStream>
 #include <QMessageBox>
 #include <QFileDialog>
-using namespace kgl;
+#include <QDebug>
+#include "CodeEditor.h"
+#include "CodeHighLighter.h"
 compiler::compiler(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::compiler)
 {
     ui->setupUi(this);
-    //this->setCentralWidget(ui->textEdit);
-    QCodeEditor *editor = new QCodeEditor;
-    setCentralWidget(editor); // or: ui->someLayout->addWidget(editor);
+
+//    CodeEditor* codeEditor = new CodeEditor();
+//    codeEditor->setMode(EditorMode::EDIT);
+//    codeEditor->setPlainText("test");
+
+    this->setCentralWidget(ui->codeEditor);
+    ui->codeEditor->setMode(EditorMode::EDIT);
+//    ui->gridLayout->addWidget(codeEditor);
+
+    // or: ui->someLayout->addWidget(editor);
+    CodeHighLighter* highlighter = new CodeHighLighter();
+    highlighter->setDocument(ui->codeEditor->document());
 
     connect(ui->actionNew, &QAction::triggered, this, &compiler::newDocument);
     connect(ui->actionOpen, &QAction::triggered , this, &compiler::open);
@@ -22,6 +35,9 @@ compiler::compiler(QWidget *parent)
     connect(ui->actionUndo, &QAction::triggered, this, &compiler::undo);
     connect(ui->actionRedo, &QAction::triggered, this, &compiler::redo);
     connect(ui->actionFont, &QAction::triggered, this, &compiler::selectFont);
+    connect(ui->actionSave_As, &QAction::triggered , this , &compiler::saveAs);
+    connect(ui->actionSaveAs, &QAction::triggered , this , &compiler::saveAs);
+
 }
 
 compiler::~compiler()
@@ -29,12 +45,14 @@ compiler::~compiler()
     delete ui;
 }
 
+
+
 void compiler::newDocument(){
     currentFile.clear();
-    ui->textEdit->setText(QString());
+    ui->codeEditor->setPlainText(QString());
 }
 
-void compiler::open(){ //open a file and copy all content into textEdit
+void compiler::open(){ //open a file and copy all content into codeEditor
     QString fileName=QFileDialog::getOpenFileName(this,"Open the file");
     QFile file(fileName);
     currentFile = fileName;
@@ -45,7 +63,7 @@ void compiler::open(){ //open a file and copy all content into textEdit
     setWindowTitle(fileName);
     QTextStream in(&file);
     QString text=in.readAll();
-    ui->textEdit->setText(text);
+    ui->codeEditor->setPlainText(text);
     file.close();
 }
 
@@ -67,7 +85,7 @@ void compiler::save(){
     }
     setWindowTitle(fileName);
     QTextStream out(&file);
-    QString text = ui->textEdit->toPlainText();
+    QString text = ui->codeEditor->toPlainText();
     out << text;
     file.close();
 }
@@ -82,7 +100,7 @@ void compiler:: saveAs(){
     currentFile = fileName;
     setWindowTitle(fileName);
     QTextStream out(&file);
-    QString text = ui->textEdit->toPlainText();
+    QString text = ui->codeEditor->toPlainText();
     out << text;
     file.close();
 }
@@ -93,17 +111,17 @@ void compiler:: exit(){
 
 
 void compiler::redo(){
-    ui->textEdit->redo();
+    ui->codeEditor->redo();
 }
 void compiler::undo(){
-    ui->textEdit->undo();
+    ui->codeEditor->undo();
 }
 
 void compiler:: selectFont(){
     bool fontSelected;
     QFont font = QFontDialog::getFont(&fontSelected,this);
     if(fontSelected){
-        ui->textEdit->setFont(font);
+        ui->codeEditor->setFont(font);
     }
 }
 

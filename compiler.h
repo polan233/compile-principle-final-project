@@ -21,7 +21,6 @@ private slots:
     void save();
     void saveAs();
     void exit();
-    void about();
 
     void redo();
     void undo();

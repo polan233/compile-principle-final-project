@@ -1,4 +1,4 @@
-QT       += core gui
+QT       += core gui widgets
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -9,11 +9,15 @@ CONFIG += c++17
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    CodeEditor.cpp \
+    CodeHighLighter.cpp \
+    compiler.cpp \
     compiler_program.cpp \
-    main.cpp \
-    compiler.cpp
+    main.cpp
 
 HEADERS += \
+    CodeEditor.h \
+    CodeHighLighter.h \
     compiler.h \
     compiler_program.h
 
