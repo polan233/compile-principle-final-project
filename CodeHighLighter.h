@@ -25,7 +25,8 @@ private:
     QRegExp commentEndExpression; // the end of cross-line comment */
 
     QTextCharFormat keywordFormat; // keywords
-    QTextCharFormat classFormat; // class
+    QTextCharFormat typeFormat; // types
+    QTextCharFormat identifierFormat; // identifier
     QTextCharFormat singleLineKey;
     QTextCharFormat singleLineValue;
     QTextCharFormat singleLineCommentFormat;

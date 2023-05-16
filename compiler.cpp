@@ -29,14 +29,20 @@ compiler::compiler(QWidget *parent)
     highlighter->setDocument(ui->codeEditor->document());
 
     connect(ui->actionNew, &QAction::triggered, this, &compiler::newDocument);
+    connect(ui->actionNew_2, &QAction::triggered, this, &compiler::newDocument);
     connect(ui->actionOpen, &QAction::triggered , this, &compiler::open);
+    connect(ui->actionOpen_2, &QAction::triggered , this, &compiler::open);
     connect(ui->actionSave, &QAction::triggered, this, &compiler::save);
+    connect(ui->actionSave_2, &QAction::triggered, this, &compiler::save);
     connect(ui->actionExit, &QAction::triggered, this, &compiler::exit);
+    connect(ui->actionExit_2, &QAction::triggered, this, &compiler::exit);
     connect(ui->actionUndo, &QAction::triggered, this, &compiler::undo);
+    connect(ui->actionUndo_2, &QAction::triggered, this, &compiler::undo);
     connect(ui->actionRedo, &QAction::triggered, this, &compiler::redo);
-    connect(ui->actionFont, &QAction::triggered, this, &compiler::selectFont);
+    connect(ui->actionRedo_2, &QAction::triggered, this, &compiler::redo);
     connect(ui->actionSave_As, &QAction::triggered , this , &compiler::saveAs);
     connect(ui->actionSaveAs, &QAction::triggered , this , &compiler::saveAs);
+
 
 }
 

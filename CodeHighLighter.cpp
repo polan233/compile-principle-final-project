@@ -5,15 +5,22 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
 
     HighlightingRule rule;
 
-    // reg below mark as purple, class name
-    classFormat.setFontWeight(QFont::Bold);
-    classFormat.setForeground(Qt::darkMagenta);
-    rule.pattern = QRegExp("\\b[A-Za-z]+:\\b");
-    rule.format = classFormat;
+//    // reg below mark as purple, class name
+//    classFormat.setFontWeight(QFont::Bold);
+//    classFormat.setForeground(Qt::darkMagenta);
+//    rule.pattern = QRegExp("\\b[A-Za-z]+:\\b");
+//    rule.format = classFormat;
+//    highlightingRules.append(rule);
+//    rule.pattern = QRegExp("\\b[A-Za-z]+\\.\\b");
+//    rule.format = classFormat;
+//    highlightingRules.append(rule);
+
+    //identifier
+    identifierFormat.setForeground(Qt::blue);
+    rule.pattern = QRegExp("[a-z,A-Z]+[a-z,A-Z,0-9]*");
+    rule.format = identifierFormat;
     highlightingRules.append(rule);
-    rule.pattern = QRegExp("\\b[A-Za-z]+\\.\\b");
-    rule.format = classFormat;
-    highlightingRules.append(rule);
+
 
     //string dark red
     quotationFormat.setForeground(Qt::darkRed);
@@ -24,20 +31,17 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     rule.format = quotationFormat;
     highlightingRules.append(rule);
 
-    //function italic blue
+    //function italic darkYellow
     functionFormat.setFontItalic(true);
-    functionFormat.setForeground(Qt::blue);
+    functionFormat.setForeground(Qt::darkYellow);
     rule.pattern = QRegExp("\\b[A-Za-z0-9_]+(?=\\()");
     rule.format = functionFormat;
     highlightingRules.append(rule);
 
     //keywords
     QStringList keywords = {
-    "and", "break", "do", "else", "elseif", "end", "false",
-    "for", "function", "if", "in", "local", "nil", "not", "or",
-    "repeat", "return", "then", "true", "unitl", "while", "goto"
+    "if","else","while","write","read","def"
     };
-
     //keywords mark as darkblue
     keywordFormat.setForeground(Qt::darkBlue);
     keywordFormat.setFontWeight(QFont::Bold);
@@ -47,6 +51,22 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     QString pattern = "\\b" + keywords[i] + "\\b";
     rule.pattern = QRegExp(pattern);
     rule.format = keywordFormat;
+    highlightingRules.append(rule);
+    }
+
+    //commands
+    QStringList types = {
+        "int","bool","double"
+    };
+    //types mark as darkMagenta
+    typeFormat.setForeground(Qt::darkMagenta);
+
+    QStringList typePatterns;
+    for(int i=0; i<types.length(); i++)
+    {
+    QString pattern = "\\b" + types[i] + "\\b";
+    rule.pattern = QRegExp(pattern);
+    rule.format = typeFormat;
     highlightingRules.append(rule);
     }
 

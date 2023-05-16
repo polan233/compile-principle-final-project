@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>1322</width>
+    <height>812</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,8 +19,8 @@
      <rect>
       <x>20</x>
       <y>10</y>
-      <width>761</width>
-      <height>501</height>
+      <width>651</width>
+      <height>401</height>
      </rect>
     </property>
    </widget>
@@ -30,7 +30,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>1322</width>
      <height>20</height>
     </rect>
    </property>
@@ -48,9 +48,11 @@
     <property name="title">
      <string>Edit</string>
     </property>
-    <addaction name="actionSet_Font"/>
     <addaction name="actionRedo_2"/>
     <addaction name="actionUndo_2"/>
+    <addaction name="actionCut"/>
+    <addaction name="actionCopy"/>
+    <addaction name="actionPaste"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
@@ -81,7 +83,6 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="actionFont"/>
    <addaction name="actionRedo"/>
    <addaction name="actionUndo"/>
   </widget>
@@ -175,19 +176,6 @@
     <enum>QAction::NoRole</enum>
    </property>
   </action>
-  <action name="actionFont">
-   <property name="icon">
-    <iconset>
-     <normalon>:/icons/icons/font.png</normalon>
-    </iconset>
-   </property>
-   <property name="text">
-    <string>Font</string>
-   </property>
-   <property name="menuRole">
-    <enum>QAction::NoRole</enum>
-   </property>
-  </action>
   <action name="actionSaveAs">
    <property name="icon">
     <iconset>
@@ -226,6 +214,16 @@
     <string>Exit</string>
    </property>
   </action>
+  <action name="actionRedo_2">
+   <property name="text">
+    <string>Redo</string>
+   </property>
+  </action>
+  <action name="actionUndo_2">
+   <property name="text">
+    <string>Undo</string>
+   </property>
+  </action>
   <action name="actionCut">
    <property name="text">
     <string>Cut</string>
@@ -236,19 +234,9 @@
     <string>Copy</string>
    </property>
   </action>
-  <action name="actionSet_Font">
+  <action name="actionPaste">
    <property name="text">
-    <string>Set Font</string>
-   </property>
-  </action>
-  <action name="actionRedo_2">
-   <property name="text">
-    <string>Redo</string>
-   </property>
-  </action>
-  <action name="actionUndo_2">
-   <property name="text">
-    <string>Undo</string>
+    <string>Paste</string>
    </property>
   </action>
  </widget>
