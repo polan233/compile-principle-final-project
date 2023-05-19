@@ -1,5 +1,7 @@
 #include "CodeHighLighter.h"
 #include <QtDebug>
+#include <QBrush>
+#include <QColor>
 //TO-DO : learn the code from the blog
 CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(parent){
 
@@ -16,10 +18,10 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
 //    highlightingRules.append(rule);
 
     //identifier
-    identifierFormat.setForeground(Qt::blue);
-    rule.pattern = QRegExp("[a-z,A-Z]+[a-z,A-Z,0-9]*");
-    rule.format = identifierFormat;
-    highlightingRules.append(rule);
+//    identifierFormat.setFontWeight(QFont::Bold);
+//    rule.pattern = QRegExp("[a-z,A-Z]+[a-z,A-Z,0-9]*");
+//    rule.format = identifierFormat;
+//    highlightingRules.append(rule);
 
 
     //string dark red
@@ -31,6 +33,29 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     rule.format = quotationFormat;
     highlightingRules.append(rule);
 
+    //bool purple bold
+    QColor color;
+    color.setRgb(125,38,205);
+    QBrush brush(color,Qt::SolidPattern);
+    boolFormat.setForeground(brush);
+    boolFormat.setFontWeight(QFont::Bold);
+    rule.pattern = QRegExp("true");
+    rule.format = boolFormat;
+    highlightingRules.append(rule);
+    rule.pattern = QRegExp("false");
+    rule.format = boolFormat;
+    highlightingRules.append(rule);
+
+    //number green
+    numberFormat.setForeground(Qt::blue);
+    rule.pattern = QRegExp("[1-9]\\d*.\\d*|0\\.\\d*[1-9]\\d*");
+    rule.format = numberFormat;
+    highlightingRules.append(rule);
+    rule.pattern = QRegExp("\\d");
+    rule.format = numberFormat;
+    highlightingRules.append(rule);
+
+
     //function italic darkYellow
     functionFormat.setFontItalic(true);
     functionFormat.setForeground(Qt::darkYellow);
@@ -39,12 +64,14 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     highlightingRules.append(rule);
 
     //keywords
+    color.setRgb(205,129,98);
+    QBrush brush_kw(color,Qt::SolidPattern);
     QStringList keywords = {
     "if","else","while","write","read","def"
     };
-    //keywords mark as darkblue
-    keywordFormat.setForeground(Qt::darkBlue);
-    keywordFormat.setFontWeight(QFont::Bold);
+    //keywords mark as salmon3
+    keywordFormat.setForeground(brush_kw);
+//    keywordFormat.setFontWeight(QFont::Bold);
     QStringList keywordPatterns;
     for(int i=0; i<keywords.length(); i++)
     {

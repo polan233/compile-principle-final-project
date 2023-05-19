@@ -17,4 +17,6 @@
     else{
         ia=ib*100;
     }
+    while(){
+	}
 }

@@ -45,7 +45,15 @@ enum Token {
     //other
     tok_identifier = -100, // start with alpha then alpha or num
     tok_uintnum= -101, // unsigned int NUM
+    tok_true = -102,
+    tok_false = -103,
 };
+
+enum type{
+    type_uint,
+    type_bool
+};
+int getIdType(std::string id);
 
 
 
@@ -55,6 +63,31 @@ int getNextToken();
 #define MAXLINE 200
 void getch();
 int getNextChar();
+
+void log_error();
+// parser declareation
+void program();
+void block();
+
+void decls();
+void decl();
+
+void intid(); // id for int
+void boolid(); //id for bool
+
+void stmts();
+void stmt();
+
+void intexpr(); // expression with type int
+void intterm();
+void intfactor();
+
+void boolexpr(); //expression with type bool
+void boolexpr_();
+void boolterm();
+void boolterm_();
+void boolfactor();
+void rel();
 
 
 #endif // COMPILER_PROGRAM_H

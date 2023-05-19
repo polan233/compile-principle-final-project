@@ -32,6 +32,8 @@ private:
     QTextCharFormat singleLineCommentFormat;
     QTextCharFormat multiLineCommentFormat;
     QTextCharFormat quotationFormat; // string
+    QTextCharFormat numberFormat; // numbers
+    QTextCharFormat boolFormat; // true and false
     QTextCharFormat functionFormat; // function
 };
 
