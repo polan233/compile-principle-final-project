@@ -71,6 +71,7 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     };
     //keywords mark as salmon3
     keywordFormat.setForeground(brush_kw);
+    keywordFormat.setFontItalic(true);
 //    keywordFormat.setFontWeight(QFont::Bold);
     QStringList keywordPatterns;
     for(int i=0; i<keywords.length(); i++)

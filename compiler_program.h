@@ -4,6 +4,8 @@
 #include<stdlib.h>
 #include <string>
 #include <iostream>
+#include <memory>
+#include <cstring>
 
 
 
@@ -60,7 +62,7 @@ int getIdType(std::string id);
 int gettok();
 int getNextToken();
 
-#define MAXLINE 200
+#define MAXLINE 81
 void getch();
 int getNextChar();
 
@@ -76,6 +78,12 @@ void intid(); // id for int
 void boolid(); //id for bool
 
 void stmts();
+void assign_stmt();
+int getTypeById(std::string id);
+void if_stmt();
+void while_stmt();
+void write_stmt();
+void read_stmt();
 void stmt();
 
 void intexpr(); // expression with type int
@@ -89,5 +97,6 @@ void boolterm_();
 void boolfactor();
 void rel();
 
+void error();
 
 #endif // COMPILER_PROGRAM_H
