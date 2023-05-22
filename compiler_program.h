@@ -55,6 +55,23 @@ enum type{
     type_uint,
     type_bool
 };
+
+#define txmax 100
+
+struct tablestruct
+{
+    std::string name;
+    int type;
+    int intVal;
+    bool boolVal;
+    int level;
+    int adr;
+    int size;
+};
+struct tablestruct table[txmax]; // 符号表
+
+void declare(int type,std::string id);
+
 int getIdType(std::string id);
 
 
@@ -63,6 +80,7 @@ int gettok();
 int getNextToken();
 
 #define MAXLINE 81
+
 void getch();
 int getNextChar();
 

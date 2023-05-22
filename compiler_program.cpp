@@ -19,6 +19,9 @@ int maxerr=30;
 FILE* fin;
 FILE* foutput;
 
+int tx=0;
+
+
 // here is lexer
 /*
  * get a char and skip all the spaces
@@ -253,64 +256,60 @@ void log_error(std::string msg){
 }
 
 void error(int n){
+    char space[81];
+    memset(space,32,81);
+    space[cc-1] = 0;
     switch(n){
-    case 0:
-        fprintf(foutput,"%d:%d error%d: Lack left brace {\n",line_count,cc-1,n);
-        break;
-    case 1:
-        fprintf(foutput,"%d:%d error%d: Lack right brace }\n",line_count,cc-1,n);
-        break;
-    case 2:
-        fprintf(foutput,"%d:%d error%d: Extraneous symbol\n",line_count,cc-1,n);
-        break;
-    case 3:
-        fprintf(foutput,"%d:%d error%d: Array size needs to be greater than zero\n",line_count,cc-1,n);
-        break;
-    case 4:
-        fprintf(foutput,"%d:%d error%d: Program incomplete!\n",line_count,cc-1,n);
-        break;
-    case 5:
-        fprintf(foutput,"%d:%d error%d: The number is too large\n",line_count,cc-1,n);
-        break;
-    case 6:
-        fprintf(foutput,"%d:%d error%d: Unrecognized symbol !\n",line_count,cc-1,n);
-        break;
-    case 7:
-        fprintf(foutput,"%d:%d error%d: Declaration lacks identity\n",line_count,cc-1,n);
-        break;
-    case 8:
-        fprintf(foutput,"%d:%d error%d: Arraysize is needed when declaring an array\n",line_count,cc-1,n);
-        break;
-    case 9:
-        fprintf(foutput,"%d:%d error%d: Lack right bracket ]\n",line_count,cc-1,n);
-        break;
-    case 10:
-        fprintf(foutput,"%d:%d error%d: Lack semicolon ;\n",line_count,cc-1,n);
-        break;
-    case 11:
-        fprintf(foutput,"%d:%d error%d: Lack left paren (\n",line_count,cc-1,n);
-        break;
-    case 12:
-        fprintf(foutput,"%d:%d error%d: Lack right paren )\n",line_count,cc-1,n);
-        break;
-    case 13:
-        fprintf(foutput,"%d:%d error%d: A no-declaration identity\n",line_count,cc-1,n);
-        break;
-    case 14:
-        fprintf(foutput,"%d:%d error%d: The identity is not an array\n",line_count,cc-1,n);
-        break;
-    case 15:
-        fprintf(foutput,"%d:%d error%d: The identity is not a variable\n",line_count,cc-1,n);
-        break;
-    case 16:
-        fprintf(foutput,"%d:%d error%d: Failed to pass the test function\n",line_count,cc-1,n);
-        break;
+        case 0:
+            fprintf(foutput,"%s^err%d: Lack left brace {\n",space,n);
+            break;
+        case 1:
+            fprintf(foutput,"%s^err%d: Lack right brace }\n",space,n);
+            break;
+        case 2:
+            fprintf(foutput,"%s^err%d: Expect a semicolon ;\n",space,n);
+            break;
+        case 3:
+            fprintf(foutput,"%s^err%d: Expect an identifier! \n",space,n);
+            break;
+        case 4:
+            fprintf(foutput,"%s^err%d: Unknown data type!\n",space,n);
+            break;
+        case 5:
+            fprintf(foutput,"%s^err%d: Undeclared identifier!\n",space,n);
+            break;
+        case 6:
+            fprintf(foutput,"%s^err%d: Missing right paren ) !\n",space,n);
+            break;
+        case 7:
+            fprintf(foutput,"%s^err%d: Missing left paren ( !\n",space,n);
+            break;
+        case 8:
+            fprintf(foutput,"%s^err%d: Unknown token !\n",space,n);
+            break;
+        case 9:
+            fprintf(foutput,"%s^err%d: Unexpected token !\n",space,n);
+            break;
+        case 10:
+            fprintf(foutput,"%s^err%d: Unexpected identifier !\n",space,n);
+            break;
+        case 50:
+            fprintf(foutput,"%s^err%d: Failed to pass the test function\n",space,n);
+            break;
     }
+
 
     err = err + 1;
     if(err > maxerr){
         exit(286);
     }
+}
+
+void declare(int type,std::string id){
+    table[tx].name=id;
+    table[tx].type=type;
+    tx++;
+    return;
 }
 
 void program(){
@@ -320,7 +319,7 @@ void program(){
 
 void block(){
     if(CurTok==tok_lbrace){
-        getNextToken();
+        getNextToken(); // eat {
         decls();
         stmts();
         if(CurTok==tok_rbrace){
@@ -329,13 +328,26 @@ void block(){
             return;
         }
         else{
-            log_error("missing right brace in a block!");
+            log_error("missing right at the end of a block!");
             error(1);
+            return;
         }
     }
     else{
-        log_error("missing left brace in a block!");
+        log_error("missing left brace at the start of a block!");
         error(0);
+        decls();
+        stmts();
+        if(CurTok==tok_rbrace){
+            getNextToken();
+            //fprintf(foutput,"\n===parsed a block!===\n");
+            return;
+        }
+        else{
+            log_error("missing right at the end of a block!");
+            error(1);
+            return;
+        }
     }
 }
 
@@ -352,7 +364,7 @@ void decl(){
         getNextToken();
         if(CurTok==tok_identifier){
             std::string id= IdentifierStr;
-            //to-do: do something to store the int var
+            declare(type_uint,id);
             getNextToken();
             if(CurTok==tok_semicolon){
                 getNextToken();
@@ -361,19 +373,19 @@ void decl(){
             }
             else{
                 log_error("missing ; in the end of decalaration!");
-                error(10);
+                error(2);
             }
         }
         else{
             log_error("missing identifier in decalaration!");
-            error(7);
+            error(3);
         }
     }
     else if (CurTok==tok_bool){
         getNextToken();
         if(CurTok==tok_identifier){
             std::string id= IdentifierStr;
-            //to-do: do something to store the bool var
+            declare(type_bool,id);
             getNextToken();
             if(CurTok==tok_semicolon){
                 getNextToken();
@@ -382,17 +394,17 @@ void decl(){
             }
             else{
                 log_error("missing ; in the end of decalaration!");
-                error(10);
+                error(2);
             }
         }
         else{
             log_error("missing identifier in decalaration!");
-            error(7);
+            error(3);
         }
     }
     else{
         log_error("unknown data type in declaration!");
-        error(6);
+        error(4);
     }
 }
 
@@ -409,12 +421,17 @@ int getTypeById(std::string id){
     //to-do implement this function
     // return the type of the identifier
     // return -1 if its not in the table
-    return type_uint;
+    for(int i=0;i<tx;i++){
+        if(table[i].name==id){
+            return table[i].type;
+        }
+    }
+    return -1;
 }
 
 void assign_stmt(){
     //to-do check the table to find out if the id is decalred and the data type of the id
-    auto id=IdentifierStr;
+    std::string id=IdentifierStr;
     int type=getTypeById(id);
     //        if(type==-1){
     //            log_error("undeclared identifier!");
@@ -433,7 +450,7 @@ void assign_stmt(){
             }
             default:{
                 log_error("undeclared identifier!");
-                error(15);
+                error(5);
             }
         }
         if(CurTok==tok_semicolon){
@@ -443,7 +460,7 @@ void assign_stmt(){
         }
         else{
             log_error("missing ; at the end of expression");
-            error(10);
+            error(2);
         }
     }
     return;
@@ -469,12 +486,12 @@ void if_stmt(){
         }
         else{
             log_error("missing right paren!");
-            error(12);
+            error(6);
         }
     }
     else{
         log_error("missing left paren after if!");
-        error(11);
+        error(7);
     }
 }
 
@@ -490,12 +507,12 @@ void while_stmt(){
             return;
         }else{
             log_error("missing right paren!");
-            error(12);
+            error(6);
         }
     }
     else{
         log_error("missing left paren after while!");
-        error(11);
+        error(7);
     }
 }
 
@@ -504,7 +521,7 @@ void write_stmt(){
     intexpr();
     if(CurTok!=tok_semicolon){
         log_error("missing ; at the end of statement");
-        error(10);
+        error(2);
     }
     else{
         getNextToken(); //eat ;
@@ -528,12 +545,12 @@ void read_stmt(){
         }
         else{
             log_error("missing ;");
-            error(10);
+            error(2);
         }
     }
     else{
         log_error("expecting an identifire but receive other token!");
-        error(6);
+        error(3);
     }
 }
 
@@ -566,7 +583,7 @@ void stmt(){
     }
     default:
         log_error("unknown token when expecting a statement!");
-        error(6);
+        error(8);
         break;
     }
     //fprintf(foutput,"\n===parsed a stmt!===\n");
@@ -655,7 +672,7 @@ void intfactor(){
         default:
         {
             log_error("unexpected token!");
-            error(6);
+            error(9);
         }
     }
 }
@@ -715,7 +732,7 @@ void boolfactor(){
         boolexpr();
         if(CurTok!=tok_rparen){
             log_error("missing right paren!");
-            error(11);
+            error(6);
         }
         else{
             getNextToken(); // eat )
@@ -741,7 +758,7 @@ void boolfactor(){
         }
         else{
             log_error("undefined identifier!");
-            error(15);
+            error(5);
         }
     }
     else if(CurTok==tok_uintnum){
@@ -752,7 +769,7 @@ void boolfactor(){
     }
     else{
         log_error("unexcepted identifier");
-        error(6);
+        error(10);
     }
 }
 
@@ -794,7 +811,7 @@ void rel(){
         }
         default:{
         log_error("unexcepted token!");
-        error(6);
+        error(9);
         }
     }
     intexpr();
@@ -803,15 +820,15 @@ void rel(){
 }
 
 //test my lexer and parser
-int main(){
-    fin= fopen("testLexerInput.txt","r");
-    foutput = fopen("testLexerOutput.txt","w");
-    IdentifierStr="";
-    NumVal=0;
-    getNextToken();
-    program();
-    cout<< err << endl;
-    fclose(fin);
-    fclose(foutput);
-    return 0;
-}
+//int main(){
+//   fin= fopen("testLexerInput.txt","r");
+//   foutput = fopen("testLexerOutput.txt","w");
+//   IdentifierStr="";
+//   NumVal=0;
+//   getNextToken();
+//   program();
+//   cout<< err << endl;
+//   fclose(fin);
+//   fclose(foutput);
+//   return 0;
+//}
