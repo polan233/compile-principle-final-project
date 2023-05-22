@@ -64,13 +64,14 @@ struct tablestruct
     int type;
     int intVal;
     bool boolVal;
-    int level;
-    int adr;
-    int size;
+    int level; //所处层
+    int adr; //地址
+    int size; //需要分配的数据区空间,留给方程使用
 };
 struct tablestruct table[txmax]; // 符号表
 
-void declare(int type,std::string id);
+void enter(int type,int* ptx,int lev,int* pdx);
+int base(int l,int* s,int b);
 
 int getIdType(std::string id);
 
@@ -87,34 +88,64 @@ int getNextChar();
 void log_error();
 // parser declareation
 void program();
-void block();
+void block(int lev,int* ptx);
 
-void decls();
-void decl();
+void decls(int lev,int* ptx,int* pdx);
+void decl(int lev,int* ptx,int* pdx);
 
-void intid(); // id for int
-void boolid(); //id for bool
-
-void stmts();
-void assign_stmt();
+void stmts(int lev,int* ptx);
+void assign_stmt(int lev,int* ptx);
 int getTypeById(std::string id);
-void if_stmt();
-void while_stmt();
-void write_stmt();
-void read_stmt();
-void stmt();
+int getIndexById(std::string id);
+void assign_stmt(int lev,int* ptx);
+void if_stmt(int lev,int* ptx);
+void while_stmt(int lev,int* ptx);
+void write_stmt(int lev,int* ptx);
+void read_stmt(int lev,int* ptx);
+void stmt(int lev,int* ptx);
 
-void intexpr(); // expression with type int
-void intterm();
-void intfactor();
+void intexpr(int lev,int* ptx); // expression with type int
+void intterm(int lev,int* ptx);
+void intfactor(int lev,int* ptx);
 
-void boolexpr(); //expression with type bool
-void boolexpr_();
-void boolterm();
-void boolterm_();
-void boolfactor();
-void rel();
+void boolexpr(int lev,int* ptx); //expression with type bool
+void boolexpr_(int lev,int* ptx);
+void boolterm(int lev,int* ptx);
+void boolterm_(int lev,int* ptx);
+void boolfactor(int lev,int* ptx);
+void rel(int lev,int* ptx);
 
 void error();
+
+#define cxmax 200 //最多虚拟机代码数
+//虚拟机代码指令
+enum fct{
+    lit, opr, lod,
+    sto, cal, ini,
+    jmp, jpc,
+};
+#define fctnum 8
+/*
+ * lit 把一个常数置入栈顶
+ * lod 把一个变量置入栈顶
+ * opr 算数和关系运算指令
+ * sto 从栈顶把书置入一个变量单元内
+ * cal 调用一个过程
+ * ini 预留数据存储位置
+ * jmp 无条件跳转
+ * jpc 有条件跳转
+*/
+
+struct instruction
+{
+    enum fct f; // 虚拟机代码指令
+    int l; //引用层与声明层层次差
+    int a; //根据f的不同而不同
+};
+
+void gen(enum fct x,int y,int z);
+
+#define amax 2048 //地址上界
+#define stacksize 500 // 运行时数据栈元素最多500
 
 #endif // COMPILER_PROGRAM_H
