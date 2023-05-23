@@ -6,6 +6,8 @@
 #include <iostream>
 #include <memory>
 #include <cstring>
+#include <map>
+#include <vector>
 
 
 
@@ -62,19 +64,32 @@ struct tablestruct
 {
     std::string name;
     int type;
-    int intVal;
-    bool boolVal;
-    int level; //所处层
-    int adr; //地址
+    double val;
     int size; //需要分配的数据区空间,留给方程使用
+    int index; //在本namespace符号表中下标
+    int name_space; //所处的namespace
 };
-struct tablestruct table[txmax]; // 符号表
 
-void enter(int type,int* ptx,int lev,int* pdx);
+
+#define maxnamespace 100 //最多有100个block
+
+//变量值直接存在符号表内
+//program namespace为0
+//别的block 依次递增
+//upperNamespaces表示 block的上层namespace
+using namespace std;
+struct tablestruct temp_tablestruct;
+// 符号表
+
+std::vector<struct tablestruct> tables[maxnamespace];
+std::vector< std::vector<int> > upperNamespaces(maxnamespace,std::vector<int>(0)); //表示namespace的依赖 upperNamespaces[namespace] 中存namespace的上级命名空间
+
+
+
+void enter(int name_space,int type,std::string name);
+void new_namespace(int father_namespace,int my_namespace); // 当进入一个block的时候调用,给这个block一个新的namespace,并根据block的参数设置上层namespace
+struct tablestruct& getTablestructById(int name_space,std::string name); // 按name和namespace查找,如果找不到,报错
 int base(int l,int* s,int b);
-
-int getIdType(std::string id);
-
 
 
 int gettok();
@@ -88,32 +103,32 @@ int getNextChar();
 void log_error();
 // parser declareation
 void program();
-void block(int lev,int* ptx);
+void block(int upper_namespace);
 
-void decls(int lev,int* ptx,int* pdx);
-void decl(int lev,int* ptx,int* pdx);
+void decls(int lev);
+void decl(int lev);
 
-void stmts(int lev,int* ptx);
-void assign_stmt(int lev,int* ptx);
+void stmts(int lev);
+void assign_stmt(int lev);
 int getTypeById(std::string id);
 int getIndexById(std::string id);
-void assign_stmt(int lev,int* ptx);
-void if_stmt(int lev,int* ptx);
-void while_stmt(int lev,int* ptx);
-void write_stmt(int lev,int* ptx);
-void read_stmt(int lev,int* ptx);
-void stmt(int lev,int* ptx);
+void assign_stmt(int lev);
+void if_stmt(int lev);
+void while_stmt(int lev);
+void write_stmt(int lev);
+void read_stmt(int lev);
+void stmt(int lev);
 
-void intexpr(int lev,int* ptx); // expression with type int
-void intterm(int lev,int* ptx);
-void intfactor(int lev,int* ptx);
+void intexpr(int lev); // expression with type int
+void intterm(int lev);
+void intfactor(int lev);
 
-void boolexpr(int lev,int* ptx); //expression with type bool
-void boolexpr_(int lev,int* ptx);
-void boolterm(int lev,int* ptx);
-void boolterm_(int lev,int* ptx);
-void boolfactor(int lev,int* ptx);
-void rel(int lev,int* ptx);
+void boolexpr(int lev); //expression with type bool
+void boolexpr_(int lev);
+void boolterm(int lev);
+void boolterm_(int lev);
+void boolfactor(int lev);
+void rel(int lev);
 
 void error();
 
@@ -147,5 +162,7 @@ void gen(enum fct x,int y,int z);
 
 #define amax 2048 //地址上界
 #define stacksize 500 // 运行时数据栈元素最多500
+
+
 
 #endif // COMPILER_PROGRAM_H

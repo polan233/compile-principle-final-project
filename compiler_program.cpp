@@ -24,6 +24,7 @@ int cx=0;
 struct instruction code[cxmax];
 char mnemonic[fctnum][5]; //虚拟机代码指令名称
 
+int namespacecount=-1;
 
 // here is lexer
 /*
@@ -253,6 +254,19 @@ int getNextToken(){
     return CurTok=gettok();
 }
 
+// 当进入一个block的时候调用,给这个block一个新的namespace,并根据block的参数设置上层namespace
+void new_namespace(int father_namespace,int my_namespace)
+{
+    if(father_namespace==0){
+        return;
+    }
+    upperNamespaces[my_namespace].push_back(father_namespace);
+    for(int i=0;i<upperNamespaces[father_namespace].size();i++){
+        upperNamespaces[my_namespace].push_back(upperNamespaces[father_namespace][i]);
+    }
+    return;
+}
+
 //my parser
 void log_error(std::string msg){
     cout << msg << endl;
@@ -326,6 +340,9 @@ void error(int n){
         case 12:
             fprintf(foutput,"%s^err%d: Expect a number in a relation expression !\n",space,n);
             break;
+        case 13:
+            fprintf(foutput,"%s^err%d: Too many blocks !\n",space,n);
+            break;
         case 50:
             fprintf(foutput,"%s^err%d: Failed to pass the test function\n",space,n);
             break;
@@ -333,30 +350,37 @@ void error(int n){
     err = err + 1;
 }
 
-void enter(int type,int* ptx,int lev,int* pdx){
-    table[(*ptx)].name=IdentifierStr;
-    table[(*ptx)].type=type;
-    if(type==type_uint||type==type_bool){ // 变量
-        table[(*ptx)].level=lev;
-        table[(*ptx)].adr=(*pdx);
-        (*pdx)++;
-    }
-    (*ptx)++;
-    return;
+
+void enter(int name_space,int type,std::string name,int size,double val){
+    temp_tablestruct.name=name;
+    temp_tablestruct.size=size;
+    temp_tablestruct.val=val;
+    temp_tablestruct.type=type;
+    temp_tablestruct.name_space=name_space;
+    temp_tablestruct.index=tables[name_space].size();
+    tables[name_space].push_back(temp_tablestruct);
 }
 
 void program(){
     tx=0;
-    block(0,&tx);
+    block(0);
     //fprintf(foutput,"\n===parsed a program!===\n");
 }
 
-void block(int lev,int* ptx){
-    int dx=0;
+void block(int upper_namespace){ //lev 是上级namespace
+    if(namespacecount<maxnamespace-1){
+        namespacecount++;
+    }
+    else{
+        error(13);
+        return;
+    }
+    int my_lev=namespacecount;
+    new_namespace(upper_namespace,my_lev);
     if(CurTok==tok_lbrace){
         getNextToken(); // eat {
-        decls(lev,ptx,&dx);
-        stmts(lev,ptx);
+        decls(my_lev);
+        stmts(my_lev);
         if(CurTok==tok_rbrace){
             getNextToken();
             //fprintf(foutput,"\n===parsed a block!===\n");
@@ -371,35 +395,23 @@ void block(int lev,int* ptx){
     else{
         log_error("missing left brace at the start of a block!");
         error(0);
-        decls(lev,ptx,&dx);
-        stmts(lev,ptx);
-        if(CurTok==tok_rbrace){
-            getNextToken();
-            //fprintf(foutput,"\n===parsed a block!===\n");
-            return;
-        }
-        else{
-            log_error("missing right at the end of a block!");
-            error(1);
-            return;
-        }
     }
 }
 
-void decls(int lev,int* ptx,int* pdx){
+void decls(int my_lev){ // 参数为自己的namespace
     while(CurTok==tok_int||CurTok==tok_bool){
-        decl(lev,ptx,pdx);
+        decl(my_lev);
     }
     //fprintf(foutput,"\n===parsed a decls!===\n");
     return;
 }
 
-void decl(int lev,int* ptx,int* pdx){
+void decl(int my_lev){
     if(CurTok==tok_int){
         getNextToken();
         if(CurTok==tok_identifier){
             std::string id= IdentifierStr;
-            enter(type_uint,ptx,lev,pdx);
+            enter(my_lev,type_uint,id,0,0);
             getNextToken();
             if(CurTok==tok_semicolon){
                 getNextToken();
@@ -420,7 +432,7 @@ void decl(int lev,int* ptx,int* pdx){
         getNextToken();
         if(CurTok==tok_identifier){
             std::string id= IdentifierStr;
-            enter(type_bool,ptx,lev,pdx);
+            enter(my_lev,type_bool,id,0,0);
             getNextToken();
             if(CurTok==tok_semicolon){
                 getNextToken();
@@ -443,38 +455,42 @@ void decl(int lev,int* ptx,int* pdx){
     }
 }
 
-void stmts(int lev,int* ptx){
+void stmts(int my_lev){
     while(CurTok==tok_identifier||CurTok==tok_if||CurTok==tok_while||
            CurTok==tok_write||CurTok==tok_read||CurTok==tok_lbrace){
-        stmt(lev,ptx);
+        stmt(my_lev);
     }
     //fprintf(foutput,"\n===parsed a stmts!===\n");
     return;
 }
 
-int getTypeById(std::string id){
-    //to-do implement this function
-    // return the type of the identifier
-    // return -1 if its not in the table
-    for(int i=tx-1;i>=0;i--){
-        if(table[i].name==id){
-            return table[i].type;
-        }
-    }
-    return -1;
-}
 
-int getIndexById(std::string id){
-    for(int i=tx-1;i>=0;i--){
-        if(table[i].name==id){
-            return i;
+// 按name和namespace查找,如果找不到,报错
+// 这里有点乱,需要仔细检查
+struct tablestruct& getTablestructById(int name_space,std::string name){
+    vector<int> searchRange(0);
+    searchRange.push_back(0); // 0即program 是所有namespace的父
+    //查询嵌套表找到所有要搜索的namespace
+    //这里应该倒序搜索,优先匹配最近的那个
+    for(int i=upperNamespaces[name_space].size()-1;i>=0;i--){
+        searchRange.push_back(upperNamespaces[name_space][i]);
+    }
+    //最后把自己加入
+    searchRange.push_back(name_space);
+    //倒叙搜索searchRange 在符号表中找name
+    for(int i=searchRange.size()-1;i>=0;i--){
+        int searchns=searchRange[i];
+        for(int j=0;j<tables[searchns].size();j++){
+            if(tables[searchns][j].name==name){
+                return tables[searchns][j]; //找到了
+            }
         }
     }
-    return -1;
+    error(5);
 }
 
 //to-do gencode
-void assign_stmt(int lev,int* ptx){
+void assign_stmt(int my_lev){
     //to-do check the table to find out if the id is decalred and the data type of the id
     std::string id=IdentifierStr;
     int type=getTypeById(id);
@@ -486,11 +502,11 @@ void assign_stmt(int lev,int* ptx){
         getNextToken();//eat =
         switch(type){
             case type_uint:{
-                intexpr(lev,ptx);
+                intexpr(my_lev);
                 break;
             }
             case type_bool:{
-                boolexpr(lev,ptx);
+                boolexpr(my_lev);
                 break;
             }
             default:{
@@ -511,17 +527,17 @@ void assign_stmt(int lev,int* ptx){
     return;
 }
 
-void if_stmt(int lev,int* ptx){
+void if_stmt(int my_lev){
     getNextToken();//eat if
     if(CurTok==tok_lparen){
         getNextToken();//eat (
-        boolexpr(lev,ptx);
+        boolexpr(my_lev);
         if(CurTok==tok_rparen){
             getNextToken();//eat )
-            stmt(lev,ptx);
+            stmt(my_lev);
             if(CurTok==tok_else){
                 getNextToken(); // eat else
-                stmt(lev,ptx);
+                stmt(my_lev);
                 //fprintf(foutput,"\n===parsed a if_stmt!===\n");
                 return;
             }else{
@@ -540,14 +556,14 @@ void if_stmt(int lev,int* ptx){
     }
 }
 
-void while_stmt(int lev,int* ptx){
+void while_stmt(int my_lev){
     getNextToken(); //eat while
     if(CurTok==tok_lparen){
         getNextToken(); // eat (
-        boolexpr(lev,ptx);
+        boolexpr(my_lev);
         if(CurTok==tok_rparen){
             getNextToken(); //eat )
-            stmt(lev,ptx);
+            stmt(my_lev);
             //fprintf(foutput,"\n===parsed a while_stmt!===\n");
             return;
         }else{
@@ -561,9 +577,9 @@ void while_stmt(int lev,int* ptx){
     }
 }
 
-void write_stmt(int lev,int* ptx){
+void write_stmt(int my_lev){
     getNextToken(); //eat write
-    intexpr(lev,ptx);
+    intexpr(my_lev);
     if(CurTok!=tok_semicolon){
         log_error("missing ; at the end of statement");
         error(2);
@@ -575,7 +591,7 @@ void write_stmt(int lev,int* ptx){
     return;
 }
 
-void read_stmt(int lev,int* ptx){
+void read_stmt(int my_lev){
     getNextToken(); //eat read
     getNextToken(); // get the identifier
     if(CurTok==tok_identifier){
@@ -600,30 +616,30 @@ void read_stmt(int lev,int* ptx){
 }
 
 
-void stmt(int lev,int* ptx){
+void stmt(int my_lev){
     switch(CurTok){
     case tok_identifier:{
-        assign_stmt(lev,ptx);
+        assign_stmt(my_lev);
         break;
     }
     case tok_if:{
-        if_stmt(lev,ptx);
+        if_stmt(my_lev);
         break;
     }
     case tok_while:{
-        while_stmt(lev,ptx);
+        while_stmt(my_lev);
         break;
     }
     case tok_write:{
-        write_stmt(lev,ptx);
+        write_stmt(my_lev);
         break;
     }
     case tok_read:{
-        read_stmt(lev,ptx);
+        read_stmt(my_lev);
         break;
     }
     case tok_lbrace:{
-        block(lev+1,ptx);
+        block(my_lev);
         break;
     }
     default:
@@ -634,18 +650,18 @@ void stmt(int lev,int* ptx){
     //fprintf(foutput,"\n===parsed a stmt!===\n");
 }
 
-void intexpr(int lev,int* ptx){
-    intterm(lev,ptx);
+void intexpr(int my_lev){
+    intterm(my_lev);
     switch(CurTok){
         case tok_add:{
             getNextToken(); // eat +
-            intterm(lev,ptx);
+            intterm(my_lev);
             gen(opr,0,2); //生成加法指令
             break;
         }
         case tok_sub:{
             getNextToken(); // eat -
-            intterm(lev,ptx);
+            intterm(my_lev);
             gen(opr,0,1); //生成减法指令
             break;
         }
@@ -656,18 +672,18 @@ void intexpr(int lev,int* ptx){
     }
 }
 
-void intterm(int lev,int* ptx){
-    intfactor(lev,ptx);
+void intterm(int my_lev){
+    intfactor(my_lev);
     switch(CurTok){
     case tok_mul:{
         getNextToken(); // eat *
-        intfactor(lev,ptx);
+        intfactor(my_lev);
         gen(opr,0,4);//生成乘法指令
         break;
     }
     case tok_div:{
         getNextToken(); // eat /
-        intfactor(lev,ptx);
+        intfactor(my_lev);
         gen(opr,0,5);//生成除法指令
         break;
     }
@@ -678,7 +694,7 @@ void intterm(int lev,int* ptx){
     }
 }
 
-void intfactor(int lev,int* ptx){
+void intfactor(int my_lev){
     switch(CurTok){
         case tok_identifier:
         {
@@ -714,7 +730,7 @@ void intfactor(int lev,int* ptx){
         case tok_lbrace: //因子是一个表达式
         {
             getNextToken(); //eat (
-            intexpr(lev,ptx);
+            intexpr(my_lev);
             if(CurTok==tok_rbrace){
                 getNextToken();//eat )
                 //fprintf(foutput,"\n===parsed a intfactor!===\n");
@@ -735,17 +751,17 @@ void intfactor(int lev,int* ptx){
     }
 }
 
-void boolexpr(int lev,int* ptx){
-    boolterm(lev,ptx);
-    boolexpr_(lev,ptx);
+void boolexpr(int my_lev){
+    boolterm(my_lev);
+    boolexpr_(my_lev);
     //fprintf(foutput,"\n===parsed a boolexpr!===\n");
 }
 
-void boolexpr_(int lev,int* ptx){
+void boolexpr_(int my_lev){
     if(CurTok==tok_or){
         getNextToken(); //eat ||
-        boolterm(lev,ptx);
-        boolexpr_(lev,ptx);
+        boolterm(my_lev);
+        boolexpr_(my_lev);
         gen(opr,0,18);
     }
     else{
@@ -755,18 +771,18 @@ void boolexpr_(int lev,int* ptx){
     return;
 }
 
-void boolterm(int lev,int* ptx){
-    boolfactor(lev,ptx);
-    boolterm_(lev,ptx);
+void boolterm(int my_lev){
+    boolfactor(my_lev);
+    boolterm_(my_lev);
     //fprintf(foutput,"\n===parsed a boolterm!===\n");
 
 }
 
-void boolterm_(int lev,int* ptx){
+void boolterm_(int my_lev){
     if(CurTok==tok_and){
         getNextToken(); //eat &&
-        boolfactor(lev,ptx);
-        boolterm_(lev,ptx);
+        boolfactor(my_lev);
+        boolterm_(my_lev);
         gen(opr,0,17);
     }
     else{
@@ -776,7 +792,7 @@ void boolterm_(int lev,int* ptx){
     return;
 }
 
-void boolfactor(int lev,int* ptx){
+void boolfactor(int my_lev){
     if(CurTok==tok_true){
         getNextToken(); //eat true;
         //fprintf(foutput,"\n===parsed a boolfactor!===\n");
@@ -791,14 +807,14 @@ void boolfactor(int lev,int* ptx){
     }
     else if(CurTok==tok_not){
         getNextToken(); // eat !
-        boolfactor(lev,ptx);
+        boolfactor(my_lev);
         //fprintf(foutput,"\n===parsed a boolfactor!===\n");
         gen(opr,0,19);
         return;
     }
     else if(CurTok==tok_lparen){
         getNextToken(); // eat (
-        boolexpr(lev,ptx);
+        boolexpr(my_lev);
         if(CurTok!=tok_rparen){
             log_error("missing right paren!");
             error(6);
@@ -815,7 +831,7 @@ void boolfactor(int lev,int* ptx){
         int position=getIndexById(id);
         int type=table[position].type;
         if(type==type_uint){
-            rel(lev,ptx);
+            rel(my_lev);
             //fprintf(foutput,"\n===parsed a boolfactor!===\n");
 
             return;
@@ -833,7 +849,7 @@ void boolfactor(int lev,int* ptx){
         }
     }
     else if(CurTok==tok_uintnum){
-        rel(lev,ptx);
+        rel(my_lev);
         // //fprintf(foutput,"\n===parsed a boolfactor!===\n");
 
         return;
@@ -844,7 +860,7 @@ void boolfactor(int lev,int* ptx){
     }
 }
 
-void rel(int lev,int* ptx){
+void rel(int my_lev){
     if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
         int i=getIndexById(id);
@@ -893,7 +909,7 @@ void rel(int lev,int* ptx){
         error(11);
         }
     }
-    intexpr(lev,ptx);
+    intexpr(my_lev);
 
     switch(relop){
         case tok_lss:{ // <
