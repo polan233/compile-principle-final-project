@@ -320,6 +320,12 @@ void error(int n){
         case 10:
             fprintf(foutput,"%s^err%d: Unexpected identifier !\n",space,n);
             break;
+        case 11:
+            fprintf(foutput,"%s^err%d: Expect a relation operator here !\n",space,n);
+            break;
+        case 12:
+            fprintf(foutput,"%s^err%d: Expect a number in a relation expression !\n",space,n);
+            break;
         case 50:
             fprintf(foutput,"%s^err%d: Failed to pass the test function\n",space,n);
             break;
@@ -736,9 +742,14 @@ void boolexpr(int lev,int* ptx){
 }
 
 void boolexpr_(int lev,int* ptx){
-    while(CurTok==tok_or){
+    if(CurTok==tok_or){
         getNextToken(); //eat ||
         boolterm(lev,ptx);
+        boolexpr_(lev,ptx);
+        gen(opr,0,18);
+    }
+    else{
+        return;
     }
     //fprintf(foutput,"\n===parsed a boolexpr_!===\n");
     return;
@@ -752,9 +763,14 @@ void boolterm(int lev,int* ptx){
 }
 
 void boolterm_(int lev,int* ptx){
-    while(CurTok==tok_and){
+    if(CurTok==tok_and){
         getNextToken(); //eat &&
         boolfactor(lev,ptx);
+        boolterm_(lev,ptx);
+        gen(opr,0,17);
+    }
+    else{
+        return;
     }
     //fprintf(foutput,"\n===parsed a boolterm_!===\n");
     return;
@@ -764,19 +780,20 @@ void boolfactor(int lev,int* ptx){
     if(CurTok==tok_true){
         getNextToken(); //eat true;
         //fprintf(foutput,"\n===parsed a boolfactor!===\n");
+        gen(lit,0,1);
         return;
     }
     else if(CurTok==tok_false){
         getNextToken(); //eat false;
         //fprintf(foutput,"\n===parsed a boolfactor!===\n");
-
+        gen(lit,0,0);
         return;
     }
     else if(CurTok==tok_not){
         getNextToken(); // eat !
         boolfactor(lev,ptx);
         //fprintf(foutput,"\n===parsed a boolfactor!===\n");
-
+        gen(opr,0,19);
         return;
     }
     else if(CurTok==tok_lparen){
@@ -795,7 +812,8 @@ void boolfactor(int lev,int* ptx){
     }
     else if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
-        int type=getTypeById(id);
+        int position=getIndexById(id);
+        int type=table[position].type;
         if(type==type_uint){
             rel(lev,ptx);
             //fprintf(foutput,"\n===parsed a boolfactor!===\n");
@@ -804,6 +822,7 @@ void boolfactor(int lev,int* ptx){
         }
         else if(type==type_bool){
             getNextToken(); //eat id
+            gen(lod,lev-table[position].level,table[position].adr); // 根据变量地址并将其值入栈
             //fprintf(foutput,"\n===parsed a boolfactor!===\n");
 
             return;
@@ -828,14 +847,22 @@ void boolfactor(int lev,int* ptx){
 void rel(int lev,int* ptx){
     if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
-        int type=getTypeById(id);
-
+        int i=getIndexById(id);
+        int type=table[i].type;
+        if(type==type_uint){ //id is a number value
+            gen(lod,lev-table[i].level,table[i].adr); //找到变量地址并将值入栈
+        }
+        else{
+            error(12);
+        }
         getNextToken(); // eat id
     }
     else if(CurTok==tok_uintnum){
         int num=(int)NumVal;
         getNextToken(); // eat NUM
+        gen(lit,0,num); //直接将当前立即数值入栈
     }
+    int relop=CurTok;
     switch(CurTok){
         case tok_lss:{ // <
         getNextToken();//eat <
@@ -863,10 +890,38 @@ void rel(int lev,int* ptx){
         }
         default:{
         log_error("unexcepted token!");
-        error(9);
+        error(11);
         }
     }
     intexpr(lev,ptx);
+
+    switch(relop){
+        case tok_lss:{ // <
+            gen(opr,0,10);
+            break;
+        }
+        case tok_leq:{ // <=
+            gen(opr,0,13);
+            break;
+        }
+        case tok_gtr:{ // >
+            gen(opr,0,12);
+            break;
+        }
+        case tok_geq:{ // >=
+            gen(opr,0,11);
+            break;
+        }
+        case tok_eql:{ // ==
+            gen(opr,0,8);
+            break;
+        }
+        case tok_neq:{ // !=
+            gen(opr,0,9);
+            break;
+        }
+    }
+    return;
     // //fprintf(foutput,"\n===parsed a rel!===\n");
 
 }
