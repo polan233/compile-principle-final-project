@@ -110,8 +110,7 @@ void decl(int lev);
 
 void stmts(int lev);
 void assign_stmt(int lev);
-int getTypeById(std::string id);
-int getIndexById(std::string id);
+
 void assign_stmt(int lev);
 void if_stmt(int lev);
 void while_stmt(int lev);

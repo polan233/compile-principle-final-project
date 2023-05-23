@@ -493,7 +493,8 @@ struct tablestruct& getTablestructById(int name_space,std::string name){
 void assign_stmt(int my_lev){
     //to-do check the table to find out if the id is decalred and the data type of the id
     std::string id=IdentifierStr;
-    int type=getTypeById(id);
+    struct tablestruct t=getTablestructById(my_lev,id);
+    int type=t.type;
     //        if(type==-1){
     //            log_error("undeclared identifier!");
     //        }
@@ -596,7 +597,8 @@ void read_stmt(int my_lev){
     getNextToken(); // get the identifier
     if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
-        int type = getTypeById(id);
+        struct tablestruct t=getTablestructById(my_lev,id);
+        int type=t.type;
         // to-do check the type and do something
         getNextToken(); // eat id
         if(CurTok==tok_semicolon){
@@ -699,20 +701,15 @@ void intfactor(int my_lev){
         case tok_identifier:
         {
             std::string id=IdentifierStr;
-            int position=getIndexById(id);
-            if(position==-1){
-                error(5);
-                return;
-            }
-            int type=table[position].type;
+            struct tablestruct t=getTablestructById(my_lev,id);
+            int type=t.type;
             if(type!=type_uint){
                 error(4);
                 return;
             }
-            gen(lod,0,table[position].adr); //找到变量地址值并入栈
+            gen(lit,0,(int)t.val); //找到变量值并入栈
             getNextToken(); // eat id
             //fprintf(foutput,"\n===parsed a intfactor!===\n");
-
             return;
         }
 
@@ -828,8 +825,8 @@ void boolfactor(int my_lev){
     }
     else if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
-        int position=getIndexById(id);
-        int type=table[position].type;
+        struct tablestruct t=getTablestructById(my_lev,id);
+        int type=t.type;
         if(type==type_uint){
             rel(my_lev);
             //fprintf(foutput,"\n===parsed a boolfactor!===\n");
@@ -838,9 +835,8 @@ void boolfactor(int my_lev){
         }
         else if(type==type_bool){
             getNextToken(); //eat id
-            gen(lod,lev-table[position].level,table[position].adr); // 根据变量地址并将其值入栈
+            gen(lit,0,(int)t.val); // 根据变量地址并将其值入栈
             //fprintf(foutput,"\n===parsed a boolfactor!===\n");
-
             return;
         }
         else{
@@ -863,10 +859,10 @@ void boolfactor(int my_lev){
 void rel(int my_lev){
     if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
-        int i=getIndexById(id);
-        int type=table[i].type;
+        struct tablestruct t=getTablestructById(my_lev,id);
+        int type=t.type;
         if(type==type_uint){ //id is a number value
-            gen(lod,lev-table[i].level,table[i].adr); //找到变量地址并将值入栈
+            gen(lit,0,(int)t.val); //找到变量地址并将值入栈
         }
         else{
             error(12);
