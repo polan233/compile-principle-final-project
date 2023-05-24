@@ -89,6 +89,7 @@ std::vector< std::vector<int> > upperNamespaces(maxnamespace,std::vector<int>(0)
 void enter(int name_space,int type,std::string name);
 void new_namespace(int father_namespace,int my_namespace); // 当进入一个block的时候调用,给这个block一个新的namespace,并根据block的参数设置上层namespace
 struct tablestruct& getTablestructById(int name_space,std::string name); // 按name和namespace查找,如果找不到,报错
+int cantFindName;
 int base(int l,int* s,int b);
 
 
@@ -141,9 +142,9 @@ enum fct{
 #define fctnum 8
 /*
  * lit 把一个常数置入栈顶
- * lod 把一个变量置入栈顶
+ * lod 把一个变量置入栈顶         lod namespace index
  * opr 算数和关系运算指令
- * sto 从栈顶把书置入一个变量单元内
+ * sto 从栈顶把书置入一个变量单元内 sto namespace index
  * cal 调用一个过程
  * ini 预留数据存储位置
  * jmp 无条件跳转
@@ -153,7 +154,7 @@ enum fct{
 struct instruction
 {
     enum fct f; // 虚拟机代码指令
-    int l; //引用层与声明层层次差
+    int l; //namespace
     int a; //根据f的不同而不同
 };
 

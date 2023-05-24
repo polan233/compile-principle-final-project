@@ -19,10 +19,9 @@ int maxerr=1;
 FILE* fin;
 FILE* foutput;
 
-int tx=0;
 int cx=0;
 struct instruction code[cxmax];
-char mnemonic[fctnum][5]; //虚拟机代码指令名称
+std::string codeName[fctnum]={"lit","opr","lod","sto","cal","int","jmp","jpc"};
 
 int namespacecount=-1;
 
@@ -71,7 +70,6 @@ int gettok(){
     while(isspace(ch)||ch==10||ch==9){
         getch();
         if(flag){ // the file ends
-
             return tok_eof;
         }
     }
@@ -83,7 +81,7 @@ int gettok(){
             IdentifierStr += ch;
             getch();
         }
-        
+
         if(IdentifierStr=="int"){
             return tok_int;
         }
@@ -294,7 +292,7 @@ void gen(enum fct x,int y,int z){
 }
 
 void error(int n){
-    if(err > maxerr){
+    if(err >= maxerr){
         return;
     }
     char space[81];
@@ -343,6 +341,9 @@ void error(int n){
         case 13:
             fprintf(foutput,"%s^err%d: Too many blocks !\n",space,n);
             break;
+        case 14:
+            fprintf(foutput,"%s^err%d: Can only use read to a int type var !\n",space,n);
+            break;
         case 50:
             fprintf(foutput,"%s^err%d: Failed to pass the test function\n",space,n);
             break;
@@ -362,12 +363,15 @@ void enter(int name_space,int type,std::string name,int size,double val){
 }
 
 void program(){
-    tx=0;
+
     block(0);
     //fprintf(foutput,"\n===parsed a program!===\n");
 }
 
 void block(int upper_namespace){ //lev 是上级namespace
+    if(err >= maxerr){
+        return;
+    }
     if(namespacecount<maxnamespace-1){
         namespacecount++;
     }
@@ -399,6 +403,9 @@ void block(int upper_namespace){ //lev 是上级namespace
 }
 
 void decls(int my_lev){ // 参数为自己的namespace
+    if(err >= maxerr){
+        return;
+    }
     while(CurTok==tok_int||CurTok==tok_bool){
         decl(my_lev);
     }
@@ -407,6 +414,9 @@ void decls(int my_lev){ // 参数为自己的namespace
 }
 
 void decl(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     if(CurTok==tok_int){
         getNextToken();
         if(CurTok==tok_identifier){
@@ -456,8 +466,14 @@ void decl(int my_lev){
 }
 
 void stmts(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     while(CurTok==tok_identifier||CurTok==tok_if||CurTok==tok_while||
            CurTok==tok_write||CurTok==tok_read||CurTok==tok_lbrace){
+        if(err >= maxerr){
+            return;
+        }
         stmt(my_lev);
     }
     //fprintf(foutput,"\n===parsed a stmts!===\n");
@@ -468,6 +484,7 @@ void stmts(int my_lev){
 // 按name和namespace查找,如果找不到,报错
 // 这里有点乱,需要仔细检查
 struct tablestruct& getTablestructById(int name_space,std::string name){
+    cantFindName=0;
     vector<int> searchRange(0);
     searchRange.push_back(0); // 0即program 是所有namespace的父
     //查询嵌套表找到所有要搜索的namespace
@@ -486,15 +503,23 @@ struct tablestruct& getTablestructById(int name_space,std::string name){
             }
         }
     }
+    cantFindName=1;
     error(5);
+    return temp_tablestruct; //随便return一个反正出错了
 }
 
-//to-do gencode
+
 void assign_stmt(int my_lev){
-    //to-do check the table to find out if the id is decalred and the data type of the id
+    if(err >= maxerr){
+        return;
+    }
     std::string id=IdentifierStr;
     struct tablestruct t=getTablestructById(my_lev,id);
+    if(cantFindName){
+        return;
+    }
     int type=t.type;
+
     //        if(type==-1){
     //            log_error("undeclared identifier!");
     //        }
@@ -515,6 +540,7 @@ void assign_stmt(int my_lev){
                 error(5);
             }
         }
+        gen(sto,t.name_space,t.index); // 这时候上面表达式的值会在栈顶,所以我们将值直接sto进符号表
         if(CurTok==tok_semicolon){
             getNextToken();//eat ;
             //fprintf(foutput,"\n===parsed a assigm_stmt!===\n");
@@ -528,21 +554,38 @@ void assign_stmt(int my_lev){
     return;
 }
 
+
 void if_stmt(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     getNextToken();//eat if
+
+    int cx0; //记录 无else的 jpc L1 位置 或者 有else的 jpc Lfalse 位置
+    int cx1; //记录 有else的 jpc L1 位置
     if(CurTok==tok_lparen){
         getNextToken();//eat (
         boolexpr(my_lev);
+        cx0=cx;
+        gen(jpc,0,0);
+        //对于无else 这里是 jpc L1 否则是 jpc Lfalse
+        //分别跳转到stmt后一句  跳转到 false-stmt的开头
         if(CurTok==tok_rparen){
             getNextToken();//eat )
             stmt(my_lev);
+            //这里的是 true-stmt,先不急gencode,需要在看了有没有else才能做
             if(CurTok==tok_else){
+                //有else
                 getNextToken(); // eat else
+                cx1=cx;
+                gen(jmp,0,0); // jmp L1
+                code[cx0].a=cx; //接下来是false-stmt的code,我们让上面的jpc跳转到这里,没毛病嗷~~
                 stmt(my_lev);
-                //fprintf(foutput,"\n===parsed a if_stmt!===\n");
+                code[cx1].a=cx; //这里让jmp 跳出if else 块
                 return;
             }else{
-                //fprintf(foutput,"\n===parsed a if_stmt!===\n");
+                //没有else
+                code[cx0].a=cx; //这里给jpc L1打补丁,让if 在条件不满足时跳过stmt
                 return;
             }
         }
@@ -557,15 +600,23 @@ void if_stmt(int my_lev){
     }
 }
 
+
 void while_stmt(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     getNextToken(); //eat while
+    int l1=cx;
     if(CurTok==tok_lparen){
         getNextToken(); // eat (
         boolexpr(my_lev);
+        int cx0=cx;
+        gen(jpc,0,0); //跳出循环
         if(CurTok==tok_rparen){
             getNextToken(); //eat )
             stmt(my_lev);
-            //fprintf(foutput,"\n===parsed a while_stmt!===\n");
+            gen(jmp,0,l1); //回到while开始
+            code[cx0].a=cx; //让jpc 跳出循环
             return;
         }else{
             log_error("missing right paren!");
@@ -578,9 +629,15 @@ void while_stmt(int my_lev){
     }
 }
 
+
 void write_stmt(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     getNextToken(); //eat write
     intexpr(my_lev);
+    gen(opr,0,14); //输出栈顶的值,也就是刚才的intexpr的值;
+    gen(opr,0,15); //输出换行符;
     if(CurTok!=tok_semicolon){
         log_error("missing ; at the end of statement");
         error(2);
@@ -592,18 +649,31 @@ void write_stmt(int my_lev){
     return;
 }
 
+
 void read_stmt(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     getNextToken(); //eat read
     getNextToken(); // get the identifier
     if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
         struct tablestruct t=getTablestructById(my_lev,id);
+        if(cantFindName){
+            return;
+        }
         int type=t.type;
-        // to-do check the type and do something
+        if(type!=type_uint){
+            error(14);
+            return;
+        }
         getNextToken(); // eat id
         if(CurTok==tok_semicolon){
             getNextToken(); // eat ;
-            //fprintf(foutput,"\n===parsed a read_stmt!===\n");
+
+            gen(opr,0,16); //从输入读取一个数然后放在栈顶
+            gen(sto,t.name_space,t.index); //将刚才读取的栈顶的值输入给变量
+
             return;
         }
         else{
@@ -619,6 +689,9 @@ void read_stmt(int my_lev){
 
 
 void stmt(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     switch(CurTok){
     case tok_identifier:{
         assign_stmt(my_lev);
@@ -653,6 +726,9 @@ void stmt(int my_lev){
 }
 
 void intexpr(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     intterm(my_lev);
     switch(CurTok){
         case tok_add:{
@@ -675,6 +751,9 @@ void intexpr(int my_lev){
 }
 
 void intterm(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     intfactor(my_lev);
     switch(CurTok){
     case tok_mul:{
@@ -697,17 +776,23 @@ void intterm(int my_lev){
 }
 
 void intfactor(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     switch(CurTok){
         case tok_identifier:
         {
             std::string id=IdentifierStr;
             struct tablestruct t=getTablestructById(my_lev,id);
+            if(cantFindName){
+                return;
+            }
             int type=t.type;
             if(type!=type_uint){
                 error(4);
                 return;
             }
-            gen(lit,0,(int)t.val); //找到变量值并入栈
+            gen(lod,t.name_space,t.index); //找到变量值并入栈
             getNextToken(); // eat id
             //fprintf(foutput,"\n===parsed a intfactor!===\n");
             return;
@@ -749,12 +834,18 @@ void intfactor(int my_lev){
 }
 
 void boolexpr(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     boolterm(my_lev);
     boolexpr_(my_lev);
     //fprintf(foutput,"\n===parsed a boolexpr!===\n");
 }
 
 void boolexpr_(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     if(CurTok==tok_or){
         getNextToken(); //eat ||
         boolterm(my_lev);
@@ -769,6 +860,9 @@ void boolexpr_(int my_lev){
 }
 
 void boolterm(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     boolfactor(my_lev);
     boolterm_(my_lev);
     //fprintf(foutput,"\n===parsed a boolterm!===\n");
@@ -776,6 +870,9 @@ void boolterm(int my_lev){
 }
 
 void boolterm_(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     if(CurTok==tok_and){
         getNextToken(); //eat &&
         boolfactor(my_lev);
@@ -790,6 +887,9 @@ void boolterm_(int my_lev){
 }
 
 void boolfactor(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     if(CurTok==tok_true){
         getNextToken(); //eat true;
         //fprintf(foutput,"\n===parsed a boolfactor!===\n");
@@ -826,6 +926,9 @@ void boolfactor(int my_lev){
     else if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
         struct tablestruct t=getTablestructById(my_lev,id);
+        if(cantFindName){
+            return;
+        }
         int type=t.type;
         if(type==type_uint){
             rel(my_lev);
@@ -835,7 +938,7 @@ void boolfactor(int my_lev){
         }
         else if(type==type_bool){
             getNextToken(); //eat id
-            gen(lit,0,(int)t.val); // 根据变量地址并将其值入栈
+            gen(lod,t.name_space,t.index); // 根据变量地址并将其值入栈
             //fprintf(foutput,"\n===parsed a boolfactor!===\n");
             return;
         }
@@ -857,12 +960,18 @@ void boolfactor(int my_lev){
 }
 
 void rel(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
     if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
         struct tablestruct t=getTablestructById(my_lev,id);
+        if(cantFindName){
+            return;
+        }
         int type=t.type;
         if(type==type_uint){ //id is a number value
-            gen(lit,0,(int)t.val); //找到变量地址并将值入栈
+            gen(lod,t.name_space,t.index); //找到变量地址并将值入栈
         }
         else{
             error(12);
@@ -940,14 +1049,17 @@ void rel(int my_lev){
 
 //test my lexer and parser
 //int main(){
-//   fin= fopen("testLexerInput.txt","r");
-//   foutput = fopen("testLexerOutput.txt","w");
-//   IdentifierStr="";
-//   NumVal=0;
-//   getNextToken();
-//   program();
-//   cout<< err << endl;
-//   fclose(fin);
-//   fclose(foutput);
-//   return 0;
+// fin= fopen("./testcodes/test-boolexpr.cx","r");
+// foutput = fopen("temperrorOutput.txt","w");
+// IdentifierStr="";
+// NumVal=0;
+// getNextToken();
+// program();
+// cout<< "error:"  << err << endl;
+// for(int i=0;i<cx;i++){
+//   cout<< i << ":\t" << codeName[code[i].f] <<" "<<code[i].l << " "<<code[i].a << endl;
+// }
+// fclose(fin);
+// fclose(foutput);
+// return 0;
 //}
