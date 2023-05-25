@@ -19,8 +19,7 @@ int precc=1;
 int preline=1;
 char line[MAXLINE];
 bool flag;// flag == true if file ends
-int* readbuffer;
-int pread;//readbuffer pointer
+
 
 int err=0;
 int maxerr=1;
@@ -28,6 +27,7 @@ int maxerr=1;
 FILE* fin;
 FILE* ferr;
 FILE* fcode;
+FILE* ftable;
 char filename[MAXLINE];
 
 int cx=0;
@@ -36,6 +36,14 @@ std::string codeName[fctnum]={"lit","opr","lod","sto","cal","int","jmp","jpc","s
 
 int namespacecount=-1;
 
+int PC=0;
+int LR=0;
+int SP=0; //空栈 SP指向下一个入栈口 栈顶元素为 SP-1
+int base[maxnamespace]={0};
+struct instruction curCode; //当前指令
+double s[stacksize]={0}; //栈
+
+
 //program namespace为0
 //别的block 依次递增
 //upperNamespaces表示 block的上层namespace
@@ -43,10 +51,14 @@ struct tablestruct temp_tablestruct;
 // 符号表
 std::vector<struct tablestruct> tables[maxnamespace];
 std::vector< std::vector<int> > upperNamespaces(maxnamespace,std::vector<int>(0)); //表示namespace的依赖 upperNamespaces[namespace] 中存namespace的上级命名空间
-int cantFindName;
+int cantFindName=0;
+std::string typeName[typeCount]={"uint","bool"};
 
 map<std::string,int> Vntab;
 vector<vector<int>> firsts(Vn_count,std::vector<int>(0));
+
+void _exeAll();
+void _exeOne();
 
 // here is lexer
 /*
@@ -490,7 +502,7 @@ void decl(int my_lev){
         if(CurTok==tok_identifier){
             std::string id= IdentifierStr;
             gen(ini,0,1);
-            enter(my_lev,type_uint,id,0,0);
+            enter(my_lev,type_uint,id,1,0);
             getNextToken();
             if(CurTok==tok_semicolon){
                 getNextToken();
@@ -513,7 +525,7 @@ void decl(int my_lev){
         if(CurTok==tok_identifier){
             std::string id= IdentifierStr;
             gen(ini,0,1);
-            enter(my_lev,type_bool,id,0,0);
+            enter(my_lev,type_bool,id,1,0);
             getNextToken();
             if(CurTok==tok_semicolon){
                 getNextToken();
@@ -718,7 +730,6 @@ void write_stmt(int my_lev){
     getNextToken(); //eat write
     intexpr(my_lev);
     gen(opr,0,14); //输出栈顶的值,也就是刚才的intexpr的值;
-    gen(opr,0,15); //输出换行符;
     if(CurTok!=tok_semicolon){
         //log_error("missing ; at the end of statement");
         error(2);
@@ -1134,16 +1145,41 @@ void rel(int my_lev){
 /*
  * 解释程序
  */
-void interpret(){
+void exeAll(){
+    ferr=fopen("temp-log.txt","a");
+    fprintf(ferr,"========Start Execute==========\n");
+    fclose(ferr);
+    _exeAll();
+    ferr=fopen("temp-log.txt","a");
+    fprintf(ferr,"========Finish Execute==========\n");
+    fclose(ferr);
+}
+void _exeAll(){
     int len=cx;
-    int PC=0;
-    int LR=0;
-    int SP=0; //空栈 SP指向下一个入栈口 栈顶元素为 SP-1
-    int base[maxnamespace]={0};
-    struct instruction curCode; //当前指令
-    double s[stacksize]={0}; //栈
-    printf("start execute cx!\n");
-    do{
+    while(PC<len){
+        _exeOne();
+    }
+}
+int exeOne(){
+    if(PC==0){
+        ferr=fopen("temp-log.txt","a");
+        fprintf(ferr,"========Start Execute==========\n");
+        fclose(ferr);
+    }
+    if(PC>=cx){
+        ferr=fopen("temp-log.txt","a");
+        fprintf(ferr,"========Finish Execute==========\n");
+        fclose(ferr);
+        return 0;
+    }
+    else{
+        _exeOne();
+        return 1;
+    }
+}
+void _exeOne(){
+    int len=cx;
+    if(PC<len){
         curCode=code[PC];
         PC++;
         switch(curCode.f){
@@ -1254,17 +1290,14 @@ void interpret(){
                         break;
                         }
                     case 14: // 输出栈顶值 栈顶值出栈 write int
-                    //to-do 改成从qt的ui读入
                         {
-                        printf("%d",s[SP-1]);
+                        ferr=fopen("temp-log.txt","a");
+                        fprintf(ferr,"%d\n",(int)s[SP-1]);
+                        fclose(ferr);
                         SP--;
                         break;
                         }
-                    case 15: // 输出换行符
-                        {
-                        printf("\n");
-                        break;
-                        }
+
                     case 16: //读入一个输入置于栈顶 read int
                         {
                         //to-do 现在是从标准输入流输入 之后改成从qt前端ui输入
@@ -1328,11 +1361,35 @@ void interpret(){
                 break;
                 }
         }
-    }while(PC<len);
-    printf("end cx!\n");
+    }
 }
 
 void init(){
+
+    ch=' ';
+    line_count=0;
+    cc=0,ll=0;
+    precc=1;
+    preline=1;
+    memset(line,0,sizeof(char)*MAXLINE);
+    flag=false;// flag == true if file ends
+    err=0;
+    maxerr=1;
+    cx=0;
+    PC=0;
+    SP=0;
+    LR=0;
+    for(int i=0;i<maxnamespace;i++){
+        tables[i].clear();
+        upperNamespaces[i].clear();
+    }
+    memset(code,0,sizeof(struct instruction)*cxmax);
+    memset(base,0,sizeof(int)*maxnamespace);
+    memset(s,0,sizeof(double)*stacksize);
+    cantFindName=0;
+    namespacecount=-1;
+
+
     //建立首符集
     Vntab.insert(pair<string,int>("program",0));
     Vntab.insert(pair<string,int>("block",1));
@@ -1395,27 +1452,57 @@ void init(){
     getNextToken();
 }
 
+void listall(){
+    for(int i=0;i<cx;i++){
+        fprintf(fcode,"%d:\t%s %d %d\n",i, codeName[code[i].f].c_str() ,code[i].l,code[i].a);
+    }
+}
+
 int compileCX(std::string file_in_name){
     strcpy(filename,file_in_name.data());
     filename[file_in_name.size()]=0;
     fin=fopen(filename,"r");
     ferr=fopen("temp-log.txt","w");
+    fcode=fopen("temp-code.txt","w");
     init();
     program();
     if(err==0){
         fprintf(ferr,"=============Compile Finish!============\n");
+        printTable();
+        listall();
     }
+    fclose(fcode);
     fclose(fin);
     fclose(ferr);
     return err;
 }
 
-//test my lexer and parser
-int main(){
-   std::string file="./testcodes/test-empty.cx";
-   int e=compileCX(file);
-   if(e==0){
-        interpret();
-   }
-   return 0;
+void printTable(){
+    ftable=fopen("temp-table.txt","w");
+    fprintf(ftable,"namespace  name      type      size      adr     \n");
+    for(int ns=0;ns<maxnamespace;ns++){
+        for(int i=0;i<tables[ns].size();i++){
+            fprintf(ftable,"%-11d%-10s%-10s%-10d%-10d\n",
+            tables[ns][i].name_space,tables[ns][i].name.c_str(),typeName[tables[ns][i].type].c_str(),tables[ns][i].size,tables[ns][i].index);
+        }
+    }
+    fclose(ftable);
 }
+
+//test my lexer and parser
+//int main(){
+//  std::string file="./testcodes/testLexerInput.cx";
+//  int e=compileCX(file);
+//  if(e==0){
+//      std::string file="./testcodes/testwhile.cx";
+//      e=compileCX(file);
+//      if(e==0){
+//      std::string file="./testcodes/test-boolexpr.cx";
+//      e=compileCX(file);
+//      if(e==0){
+//        exeAll();
+//      }
+//    }
+//  }
+//  return 0;
+//}

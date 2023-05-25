@@ -55,6 +55,7 @@ enum type{
     type_uint,
     type_bool
 };
+#define typeCount 2
 
 #define txmax 100
 
@@ -78,7 +79,6 @@ void enter(int name_space,int type,std::string name);
 void new_namespace(int father_namespace,int my_namespace); // 当进入一个block的时候调用,给这个block一个新的namespace,并根据block的参数设置上层namespace
 struct tablestruct& getTablestructById(int name_space,std::string name); // 按name和namespace查找,如果找不到,报错
 
-int base(int l,int* s,int b);
 
 
 int gettok();
@@ -151,9 +151,12 @@ struct instruction
 };
 
 void gen(enum fct x,int y,int z);
-void interpret();
+void exeAll();
+int exeOne();
 
 int compileCX(FILE* fin,FILE* fout);
+void printTable();
+void listall();
 
 #define amax 2048 //地址上界
 #define stacksize 500 // 运行时数据栈元素最多500
