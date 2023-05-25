@@ -1,14 +1,12 @@
 #ifndef COMPILER_PROGRAM_H
 #define COMPILER_PROGRAM_H
-#include<stdio.h>
-#include<stdlib.h>
 #include <string>
 #include <iostream>
 #include <memory>
 #include <cstring>
 #include <map>
 #include <vector>
-
+using namespace std;
 
 
 enum Token {
@@ -73,23 +71,13 @@ struct tablestruct
 
 #define maxnamespace 100 //最多有100个block
 
-//变量值直接存在符号表内
-//program namespace为0
-//别的block 依次递增
-//upperNamespaces表示 block的上层namespace
-using namespace std;
-struct tablestruct temp_tablestruct;
-// 符号表
-
-std::vector<struct tablestruct> tables[maxnamespace];
-std::vector< std::vector<int> > upperNamespaces(maxnamespace,std::vector<int>(0)); //表示namespace的依赖 upperNamespaces[namespace] 中存namespace的上级命名空间
 
 
 
 void enter(int name_space,int type,std::string name);
 void new_namespace(int father_namespace,int my_namespace); // 当进入一个block的时候调用,给这个block一个新的namespace,并根据block的参数设置上层namespace
 struct tablestruct& getTablestructById(int name_space,std::string name); // 按name和namespace查找,如果找不到,报错
-int cantFindName;
+
 int base(int l,int* s,int b);
 
 
@@ -101,7 +89,8 @@ int getNextToken();
 void getch();
 int getNextChar();
 
-void log_error();
+void error(int n);
+int test(std::string Vn_name);
 // parser declareation
 void program();
 void block(int upper_namespace);
@@ -110,8 +99,6 @@ void decls(int lev);
 void decl(int lev);
 
 void stmts(int lev);
-void assign_stmt(int lev);
-
 void assign_stmt(int lev);
 void if_stmt(int lev);
 void while_stmt(int lev);
@@ -130,6 +117,10 @@ void boolterm_(int lev);
 void boolfactor(int lev);
 void rel(int lev);
 
+
+#define Vn_count 20
+
+
 void error();
 
 #define cxmax 200 //最多虚拟机代码数
@@ -137,9 +128,10 @@ void error();
 enum fct{
     lit, opr, lod,
     sto, cal, ini,
-    jmp, jpc,
+    jmp, jpc, ssp,
+    lsp,
 };
-#define fctnum 8
+#define fctnum 10
 /*
  * lit 把一个常数置入栈顶
  * lod 把一个变量置入栈顶         lod namespace index
@@ -159,6 +151,9 @@ struct instruction
 };
 
 void gen(enum fct x,int y,int z);
+void interpret();
+
+int compileCX(FILE* fin,FILE* fout);
 
 #define amax 2048 //地址上界
 #define stacksize 500 // 运行时数据栈元素最多500

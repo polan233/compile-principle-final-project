@@ -24,6 +24,7 @@ private:
     QRegExp commentStartExpression; // the start of cross-line comment /*
     QRegExp commentEndExpression; // the end of cross-line comment */
 
+
     QTextCharFormat keywordFormat; // keywords
     QTextCharFormat typeFormat; // types
     QTextCharFormat identifierFormat; // identifier

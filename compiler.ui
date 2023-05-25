@@ -31,7 +31,7 @@
      <x>0</x>
      <y>0</y>
      <width>1322</width>
-     <height>20</height>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -54,8 +54,17 @@
     <addaction name="actionCopy"/>
     <addaction name="actionPaste"/>
    </widget>
+   <widget class="QMenu" name="menuRun">
+    <property name="title">
+     <string>Compile</string>
+    </property>
+    <addaction name="actionCompile"/>
+    <addaction name="actionRun"/>
+    <addaction name="actionDebug"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuEdit"/>
+   <addaction name="menuRun"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <widget class="QToolBar" name="toolBar">
@@ -83,6 +92,7 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="actionSet_Font"/>
    <addaction name="actionRedo"/>
    <addaction name="actionUndo"/>
   </widget>
@@ -96,6 +106,10 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
+   <addaction name="actionCompile"/>
+   <addaction name="actionRun"/>
+   <addaction name="actionDebug"/>
+   <addaction name="separator"/>
    <addaction name="actionExit"/>
   </widget>
   <action name="actionNew">
@@ -239,6 +253,45 @@
     <string>Paste</string>
    </property>
   </action>
+  <action name="actionSet_Font">
+   <property name="icon">
+    <iconset>
+     <normalon>:/icons/icons/font.png</normalon>
+    </iconset>
+   </property>
+   <property name="text">
+    <string>Set Font</string>
+   </property>
+  </action>
+  <action name="actionCompile">
+   <property name="icon">
+    <iconset>
+     <normalon>:/icons/icons/build.png</normalon>
+    </iconset>
+   </property>
+   <property name="text">
+    <string>Compile</string>
+   </property>
+  </action>
+  <action name="actionRun">
+   <property name="icon">
+    <iconset>
+     <normalon>:/icons/icons/run.png</normalon>
+    </iconset>
+   </property>
+   <property name="text">
+    <string>Run</string>
+   </property>
+  </action>
+  <action name="actionDebug">
+   <property name="icon">
+    <iconset resource="src1.qrc">
+     <normaloff>:/icons/icons/debug.png</normaloff>:/icons/icons/debug.png</iconset>
+   </property>
+   <property name="text">
+    <string>Debug</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -247,6 +300,8 @@
    <header>CodeEditor.h</header>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="src1.qrc"/>
+ </resources>
  <connections/>
 </ui>

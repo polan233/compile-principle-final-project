@@ -42,7 +42,7 @@ compiler::compiler(QWidget *parent)
     connect(ui->actionRedo_2, &QAction::triggered, this, &compiler::redo);
     connect(ui->actionSave_As, &QAction::triggered , this , &compiler::saveAs);
     connect(ui->actionSaveAs, &QAction::triggered , this , &compiler::saveAs);
-
+    connect(ui->actionSet_Font,&QAction::triggered , this , &compiler::selectFont);
 
 }
 
