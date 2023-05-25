@@ -28,6 +28,7 @@ FILE* fin;
 FILE* ferr;
 FILE* fcode;
 FILE* ftable;
+FILE* fstack;
 char filename[MAXLINE];
 
 int cx=0;
@@ -1174,6 +1175,7 @@ int exeOne(){
     }
     else{
         _exeOne();
+        printStack();
         return 1;
     }
 }
@@ -1447,6 +1449,9 @@ void init(){
     firsts[Vntab["boolexpr"]].push_back(tok_lparen);
     firsts[Vntab["boolexpr"]].push_back(tok_uintnum);
 
+    fstack=fopen("temp-stack.txt","w");
+    fclose(fstack);
+
     IdentifierStr="";
     NumVal=0;
     getNextToken();
@@ -1489,20 +1494,25 @@ void printTable(){
     fclose(ftable);
 }
 
+void printStack(){
+    fstack=fopen("temp-stack.txt","w");
+    fprintf(fstack,"=============bottom=============\n");
+    for(int i=0;i<SP;i++){
+        fprintf(fstack,"%d:\t%.2lf\n",i,s[i]);
+    }
+    fclose(fstack);
+}
+
 //test my lexer and parser
 //int main(){
-//  std::string file="./testcodes/testLexerInput.cx";
-//  int e=compileCX(file);
-//  if(e==0){
-//      std::string file="./testcodes/testwhile.cx";
-//      e=compileCX(file);
-//      if(e==0){
-//      std::string file="./testcodes/test-boolexpr.cx";
-//      e=compileCX(file);
-//      if(e==0){
-//        exeAll();
-//      }
-//    }
-//  }
-//  return 0;
+// std::string file="./testcodes/testLexerInput.cx";
+// int e=compileCX(file);
+// if(e==0){
+//     while(getchar()!='p'){
+//        if(!exeOne()){
+//            break;
+//        }
+//     }
+// }
+// return 0;
 //}

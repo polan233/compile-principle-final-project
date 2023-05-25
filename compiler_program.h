@@ -157,6 +157,7 @@ int exeOne();
 int compileCX(FILE* fin,FILE* fout);
 void printTable();
 void listall();
+void printStack();
 
 #define amax 2048 //地址上界
 #define stacksize 500 // 运行时数据栈元素最多500
