@@ -36,6 +36,7 @@ private:
     QTextCharFormat numberFormat; // numbers
     QTextCharFormat boolFormat; // true and false
     QTextCharFormat functionFormat; // function
+    QTextCharFormat symbolFormat; //symbols like { + =
 };
 
 #endif // CODEHIGHLIGHTER_H

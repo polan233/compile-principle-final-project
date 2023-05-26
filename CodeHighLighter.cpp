@@ -24,14 +24,8 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
 //    highlightingRules.append(rule);
 
 
-    //string dark red
-    quotationFormat.setForeground(Qt::darkRed);
-    rule.pattern = QRegExp("\".*\"");
-    rule.format = quotationFormat;
-    highlightingRules.append(rule);
-    rule.pattern = QRegExp("'.*'");
-    rule.format = quotationFormat;
-    highlightingRules.append(rule);
+
+
 
     //bool purple bold
     QColor color;
@@ -46,7 +40,7 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     rule.format = boolFormat;
     highlightingRules.append(rule);
 
-    //number green
+    //number blue
     numberFormat.setForeground(Qt::blue);
     rule.pattern = QRegExp("[1-9]\\d*.\\d*|0\\.\\d*[1-9]\\d*");
     rule.format = numberFormat;
@@ -55,10 +49,19 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     rule.format = numberFormat;
     highlightingRules.append(rule);
 
+    // symbols like + - { green
+    //"\\+|-|\\*|/|<|>|=|!|&|\\||;|\\(|\\)|{|}"
+    symbolFormat.setForeground(Qt::darkGreen);
+    rule.pattern = QRegExp("\\+|-|\\*|\\/|<|>|=|!|\\&|\\||;|\\(|\\)|\\{|\\}");
+    rule.format = symbolFormat;
+    highlightingRules.append(rule);
+
+
 
     //function italic darkYellow
     functionFormat.setFontItalic(true);
     functionFormat.setForeground(Qt::darkYellow);
+    functionFormat.setFontWeight(QFont::Bold);
     rule.pattern = QRegExp("\\b[A-Za-z0-9_]+(?=\\()");
     rule.format = functionFormat;
     highlightingRules.append(rule);
@@ -72,7 +75,7 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     //keywords mark as salmon3
     keywordFormat.setForeground(brush_kw);
 
-//    keywordFormat.setFontWeight(QFont::Bold);
+    keywordFormat.setFontWeight(QFont::Bold);
     QStringList keywordPatterns;
     for(int i=0; i<keywords.length(); i++)
     {
@@ -82,6 +85,15 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     highlightingRules.append(rule);
     }
 
+    //string dark red
+    quotationFormat.setForeground(Qt::darkRed);
+    rule.pattern = QRegExp("\".*\"");
+    rule.format = quotationFormat;
+    highlightingRules.append(rule);
+    rule.pattern = QRegExp("'.*'");
+    rule.format = quotationFormat;
+    highlightingRules.append(rule);
+
     //commands
     QStringList types = {
         "int","bool","double"
@@ -89,7 +101,7 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
 
     //types mark as darkMagenta
     typeFormat.setForeground(Qt::darkMagenta);
-
+    typeFormat.setFontWeight(QFont::Bold);
     QStringList typePatterns;
     for(int i=0; i<types.length(); i++)
     {
@@ -99,19 +111,21 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     highlightingRules.append(rule);
     }
 
-    //single line comment  green
-    singleLineCommentFormat.setForeground(Qt::darkGreen);
+    //single line comment  gray
+    singleLineCommentFormat.setForeground(Qt::gray);
     singleLineCommentFormat.setFontItalic(true);
     rule.pattern = QRegExp("//[^\n]*");
     //rule.pattern = QRegExp("--[^\n]*");
     rule.format = singleLineCommentFormat;
     highlightingRules.append(rule);
 
-    // multi line comment
-    multiLineCommentFormat.setForeground(Qt::darkGreen);
+    // multi line comment gray
+    multiLineCommentFormat.setForeground(Qt::gray);
     multiLineCommentFormat.setFontItalic(true);
     commentStartExpression = QRegExp("/\\*");
     commentEndExpression = QRegExp("\\*/");
+
+
 }
 
 void CodeHighLighter::highlightBlock(const QString &text)

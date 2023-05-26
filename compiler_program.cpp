@@ -1484,10 +1484,10 @@ int compileCX(std::string file_in_name){
 
 void printTable(){
     ftable=fopen("temp-table.txt","w");
-    fprintf(ftable,"namespace  name      type      size      adr     \n");
+    fprintf(ftable,"namespace\tname\ttype\tsize\tadr\t\n");
     for(int ns=0;ns<maxnamespace;ns++){
         for(int i=0;i<tables[ns].size();i++){
-            fprintf(ftable,"%-11d%-10s%-10s%-10d%-10d\n",
+            fprintf(ftable,"%-9d\t%-8s%-8s%-8d%-8d\n",
             tables[ns][i].name_space,tables[ns][i].name.c_str(),typeName[tables[ns][i].type].c_str(),tables[ns][i].size,tables[ns][i].index);
         }
     }

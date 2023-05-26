@@ -154,7 +154,7 @@ void gen(enum fct x,int y,int z);
 void exeAll();
 int exeOne();
 
-int compileCX(FILE* fin,FILE* fout);
+int compileCX(std::string file_in_name);
 void printTable();
 void listall();
 void printStack();

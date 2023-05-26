@@ -29,6 +29,7 @@ private slots:
     //    void setFontBold(bool bold);
     //    void setFontItalic(bool italic);
     void selectFont();
+    void compile();
 
 private:
     Ui::compiler *ui;

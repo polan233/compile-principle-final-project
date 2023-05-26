@@ -10,6 +10,7 @@
 #include <QDebug>
 #include "CodeEditor.h"
 #include "CodeHighLighter.h"
+#include "compiler_program.h"
 compiler::compiler(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::compiler)
@@ -22,6 +23,13 @@ compiler::compiler(QWidget *parent)
 
     this->setCentralWidget(ui->codeEditor);
     ui->codeEditor->setMode(EditorMode::EDIT);
+    QFont font;
+    //设置文字字体
+    font.setFamily("Consolas");
+    font.setPointSize(14);
+    ui->codeEditor->setFont(font);
+
+
 //    ui->gridLayout->addWidget(codeEditor);
 
     // or: ui->someLayout->addWidget(editor);
@@ -29,21 +37,14 @@ compiler::compiler(QWidget *parent)
     highlighter->setDocument(ui->codeEditor->document());
 
     connect(ui->actionNew, &QAction::triggered, this, &compiler::newDocument);
-    connect(ui->actionNew_2, &QAction::triggered, this, &compiler::newDocument);
     connect(ui->actionOpen, &QAction::triggered , this, &compiler::open);
-    connect(ui->actionOpen_2, &QAction::triggered , this, &compiler::open);
     connect(ui->actionSave, &QAction::triggered, this, &compiler::save);
-    connect(ui->actionSave_2, &QAction::triggered, this, &compiler::save);
     connect(ui->actionExit, &QAction::triggered, this, &compiler::exit);
-    connect(ui->actionExit_2, &QAction::triggered, this, &compiler::exit);
     connect(ui->actionUndo, &QAction::triggered, this, &compiler::undo);
-    connect(ui->actionUndo_2, &QAction::triggered, this, &compiler::undo);
     connect(ui->actionRedo, &QAction::triggered, this, &compiler::redo);
-    connect(ui->actionRedo_2, &QAction::triggered, this, &compiler::redo);
-    connect(ui->actionSave_As, &QAction::triggered , this , &compiler::saveAs);
     connect(ui->actionSaveAs, &QAction::triggered , this , &compiler::saveAs);
     connect(ui->actionSet_Font,&QAction::triggered , this , &compiler::selectFont);
-
+    connect(ui->actionCompile,&QAction::triggered,this,&compiler::compile);
 }
 
 compiler::~compiler()
@@ -129,5 +130,31 @@ void compiler:: selectFont(){
     if(fontSelected){
         ui->codeEditor->setFont(font);
     }
+}
+
+void compiler:: compile(){
+    //先做保存
+    QString fileName;
+    // if dont have a fileName, we create one
+    if(currentFile.isEmpty()){
+        fileName=QFileDialog::getSaveFileName(this,"Name the file.");
+        currentFile=fileName;
+    }
+    else{
+        fileName=currentFile;
+    }
+    QFile file(fileName);
+    //handle error when opening the file
+    if(!file.open(QIODevice::WriteOnly|QFile::Text)){
+        QMessageBox::warning(this,"Warning","Cannot save file: "+file.errorString());
+        return;
+    }
+    setWindowTitle(fileName);
+    QTextStream out(&file);
+    QString text = ui->codeEditor->toPlainText();
+    out << text;
+    file.close();
+    int err=compileCX(currentFile.toStdString());
+    cout << err;
 }
 
