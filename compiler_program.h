@@ -45,18 +45,23 @@ enum Token {
     tok_rparen = -66, // )
     tok_lbrace = -67, // {
     tok_rbrace = -68, // }
+    tok_mod = -69, //%
+    tok_xor = -70, // XOR
+    tok_odd = -71, // ODD
+    tok_selfadd = -72, // ++
+    tok_selfmin = -73, // --
 
 
     //other
     tok_identifier = -100, // start with alpha then alpha or num
-    tok_uintnum= -101, // unsigned int NUM
+    tok_intnum= -101, //  int NUM
     tok_true = -102,
     tok_false = -103,
     tok_floatnum = -104,
 };
 
 enum type{
-    type_uint,
+    type_int,
     type_bool,
     type_float,
 };
@@ -104,6 +109,7 @@ void decls(int lev);
 void decl(int lev);
 
 void stmts(int lev);
+void selfaddmin_stmt(int lev);
 void assign_stmt(int lev);
 void if_stmt(int lev);
 void while_stmt(int lev);
@@ -127,10 +133,12 @@ void boolterm(int lev);
 void boolterm_(int lev);
 void boolfactor(int lev);
 void rel(int lev);
+void isOdd(int lev);
 void frel(int lev);
+void nega_rel(int lev);
 
 
-#define Vn_count 26
+#define Vn_count 29
 
 
 void error();

@@ -52,7 +52,13 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     // symbols like + - { green
     //"\\+|-|\\*|/|<|>|=|!|&|\\||;|\\(|\\)|{|}"
     symbolFormat.setForeground(Qt::darkGreen);
-    rule.pattern = QRegExp("\\+|-|\\*|\\/|<|>|=|!|\\&|\\||;|\\(|\\)|\\{|\\}");
+    rule.pattern = QRegExp("\\+|-|\\*|\\/|<|>|=|!|\\&|\\||;|\\(|\\)|\\{|\\}|\\%");
+    rule.format = symbolFormat;
+    highlightingRules.append(rule);
+    rule.pattern = QRegExp("\\bXOR\\b");
+    rule.format = symbolFormat;
+    highlightingRules.append(rule);
+    rule.pattern = QRegExp("\\bODD\\b");
     rule.format = symbolFormat;
     highlightingRules.append(rule);
 

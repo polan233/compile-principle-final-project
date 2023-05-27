@@ -53,7 +53,7 @@ struct tablestruct temp_tablestruct;
 std::vector<struct tablestruct> tables[maxnamespace];
 std::vector< std::vector<int> > upperNamespaces(maxnamespace,std::vector<int>(0)); //表示namespace的依赖 upperNamespaces[namespace] 中存namespace的上级命名空间
 int cantFindName=0;
-std::string typeName[typeCount]={"uint","bool","float"};
+std::string typeName[typeCount]={"int","bool","float"};
 
 map<std::string,int> Vntab;
 vector<vector<int>> firsts(Vn_count,std::vector<int>(0));
@@ -148,6 +148,12 @@ int gettok(){
         if(IdentifierStr=="false"){
             return tok_false;
         }
+        if(IdentifierStr=="XOR"){
+            return tok_xor;
+        }
+        if(IdentifierStr=="ODD"){
+            return tok_odd;
+        }
 
         return tok_identifier;
     }
@@ -172,9 +178,8 @@ int gettok(){
         }
         else{
             NumVal = stoi(NumStr);
-            return tok_uintnum;
+            return tok_intnum;
         }
-
     }
 
     //  divide or comment
@@ -203,13 +208,53 @@ int gettok(){
         }
     }
 
+    if(ch=='%'){
+        getch();
+        return tok_mod;
+    }
+
     if(ch=='+'){
         getch();
-        return tok_add;
+        if(ch=='+'){
+            getch();
+            return tok_selfadd;
+        }
+        else {
+            return tok_add;
+        }
     }
     if(ch=='-'){
         getch();
-        return tok_sub;
+        if(ch=='-'){
+            getch();
+            return tok_selfmin;
+        }
+        else if(isdigit(ch)){ // number
+            int isfloat=0;
+            std::string NumStr;
+            do{//吸收整数部分
+                NumStr += ch;
+                getch();
+            }while(isdigit(ch));
+            if(ch=='.'){
+                isfloat=1;
+                do{//吸收小数部分
+                    NumStr += ch;
+                    getch();
+                }while(isdigit(ch));
+            }
+            if(isfloat){
+                NumVal = -1.0*stod(NumStr);
+                return tok_floatnum;
+            }
+            else{
+                NumVal = -1*stoi(NumStr);
+                return tok_intnum;
+            }
+        }
+        else {
+            return tok_sub;
+        }
     }
     if(ch=='*'){
         getch();
@@ -440,6 +485,18 @@ void error(int n){
         case 22:
             fprintf(ferr,"line%d:%d err%d: Expect a float number in a float relation expression !\n",preline,precc-1,n);
             break;
+        case 23:
+            fprintf(ferr,"line%d:%d err%d: Unexcepted operator !\n",preline,precc-1,n);
+            break;
+        case 24:
+            fprintf(ferr,"line%d:%d err%d: Can only use ++ and -- on int !\n",preline,precc-1,n);
+            break;
+        case 25:
+            fprintf(ferr,"line%d:%d err%d: Expect a int type!\n",preline,precc-1,n);
+            break;
+        case 26:
+            fprintf(ferr,"line%d:%d err%d: Expect a float type!\n",preline,precc-1,n);
+            break;
     }
     err = err + 1;
 }
@@ -531,7 +588,7 @@ void decl(int my_lev){
         if(CurTok==tok_identifier){
             std::string id= IdentifierStr;
             gen(ini,0,1);
-            enter(my_lev,type_uint,id,1,0);
+            enter(my_lev,type_int,id,1,0);
             getNextToken();
             if(CurTok==tok_semicolon){
                 getNextToken();
@@ -612,7 +669,8 @@ void stmts(int my_lev){
     }
     while(CurTok==tok_identifier||CurTok==tok_if||CurTok==tok_while||
            CurTok==tok_write||CurTok==tok_read||CurTok==tok_lbrace
-            ||CurTok==tok_writef||CurTok==tok_readf){
+            ||CurTok==tok_writef||CurTok==tok_readf
+            ||CurTok==tok_selfadd||CurTok==tok_selfmin){
         if(err >= maxerr){
             return;
         }
@@ -650,6 +708,75 @@ struct tablestruct& getTablestructById(int name_space,std::string name){
 }
 
 
+void selfaddmin_stmt(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
+    switch(CurTok){
+        case tok_selfadd:
+            {
+            getNextToken();// eat ++
+            if(CurTok!=tok_identifier){
+                error(3);
+                return;
+            }
+            std::string id=IdentifierStr;
+            tablestruct t=getTablestructById(my_lev,id);
+            if(cantFindName){ //检查是否定义
+                error(5);
+                return;
+            }
+            if(t.type!=type_int){ // 检查类型
+                error(25);
+                return;
+            }
+            getNextToken(); //eat aid
+            if(CurTok!=tok_semicolon){
+                error(2);
+                return;
+            }
+            getNextToken(); //eat ;
+            gen(lod,t.name_space,t.index);
+            gen(lit,0,1);
+            gen(opr,0,2);
+            gen(sto,t.name_space,t.index);
+            return;
+            }
+        case tok_selfmin:
+            {
+            getNextToken();// eat --
+            if(CurTok!=tok_identifier){
+                error(3);
+                return;
+            }
+            std::string id=IdentifierStr;
+            tablestruct t=getTablestructById(my_lev,id);
+            if(cantFindName){ //检查是否定义
+                error(5);
+                return;
+            }
+            if(t.type!=type_int){ // 检查类型
+                error(25);
+                return;
+            }
+            getNextToken(); //eat aid
+            if(CurTok!=tok_semicolon){
+                error(2);
+                return;
+            }
+            getNextToken(); //eat ;
+            gen(lod,t.name_space,t.index);
+            gen(lit,0,1);
+            gen(opr,0,3);
+            gen(sto,t.name_space,t.index);
+            return;
+            }
+        default:
+            error(9);
+            return;
+    }
+}
+
 void assign_stmt(int my_lev){
     if(err >= maxerr){
         return;
@@ -657,6 +784,7 @@ void assign_stmt(int my_lev){
     std::string id=IdentifierStr;
     struct tablestruct t=getTablestructById(my_lev,id);
     if(cantFindName){
+        error(5);
         return;
     }
     int type=t.type;
@@ -668,7 +796,7 @@ void assign_stmt(int my_lev){
     if(CurTok==tok_assign){
         getNextToken();//eat =
         switch(type){
-            case type_uint:{
+            case type_int:{
                 intexpr(my_lev);
                 break;
             }
@@ -696,6 +824,44 @@ void assign_stmt(int my_lev){
             error(2);
             return;
         }
+    }
+    else if(CurTok==tok_selfadd||CurTok==tok_selfmin){
+        int op=CurTok;
+        getNextToken(); //eat ++ --
+        if(CurTok!=tok_semicolon){
+            error(2);
+            return;
+        }
+        getNextToken(); //eat ;
+        if(type==type_int){
+            switch(op){
+                case tok_selfadd:
+                {
+                    gen(lod,t.name_space,t.index);
+                    gen(lit,0,1);
+                    gen(opr,0,2); // aid=aid+1;
+                    gen(sto,t.name_space,t.index);
+                    break;
+                }
+                case tok_selfmin:
+                {
+                    gen(lod,t.name_space,t.index);
+                    gen(lit,0,1);
+                    gen(opr,0,3);
+                    gen(sto,t.name_space,t.index);
+                    break;
+                }
+            }
+
+        }
+        else{
+            error(24);
+            return;
+        }
+    }
+    else {
+        error(9);
+        return;
     }
     return;
 }
@@ -809,10 +975,11 @@ void read_stmt(int my_lev){
         std::string id=IdentifierStr;
         struct tablestruct t=getTablestructById(my_lev,id);
         if(cantFindName){
+            error(5);
             return;
         }
         int type=t.type;
-        if(type!=type_uint){
+        if(type!=type_int){
             error(14);
             return;
         }
@@ -867,6 +1034,7 @@ void readf_stmt(int my_lev){
         std::string id=IdentifierStr;
         struct tablestruct t=getTablestructById(my_lev,id);
         if(cantFindName){
+            error(5);
             return;
         }
         int type=t.type;
@@ -906,6 +1074,12 @@ void stmt(int my_lev){
         return;
     }
     switch(CurTok){
+    case tok_selfadd:
+    case tok_selfmin:
+    {
+        selfaddmin_stmt(my_lev);
+        break;
+    }
     case tok_identifier:{
         assign_stmt(my_lev);
         break;
@@ -968,6 +1142,7 @@ void intexpr(int my_lev){
             break;
         }
         default:{
+
             return;
         }
     }
@@ -991,7 +1166,14 @@ void intterm(int my_lev){
         gen(opr,0,5);//生成除法指令
         break;
     }
+    case tok_mod:{
+        getNextToken(); //eat %
+        intfactor(my_lev);
+        gen(opr,0,26); //生成求余指令
+        break;
+    }
     default:{
+
         return;
     }
     }
@@ -1002,26 +1184,48 @@ void intfactor(int my_lev){
         return;
     }
     switch(CurTok){
+        case tok_sub:
+        {
+            getNextToken(); //eat -
+            if(CurTok!=tok_identifier){
+                error(9);
+                return;
+            }
+            std::string id=IdentifierStr;
+            struct tablestruct t=getTablestructById(my_lev,id);
+            if(cantFindName){
+                error(5);
+                return;
+            }
+            int type=t.type;
+            if(type!=type_int){
+                error(25);
+                return;
+            }
+            //上面检查完是否定义和类型
+            getNextToken();//eat aid
+            gen(lod,t.name_space,t.index); //找到变量值并入栈
+            gen(opr,0,1); //栈顶取反
+            return;
+        }
         case tok_identifier:
         {
             std::string id=IdentifierStr;
             struct tablestruct t=getTablestructById(my_lev,id);
             if(cantFindName){
+                error(5);
                 return;
             }
             int type=t.type;
-            if(type!=type_uint){
-                error(4);
+            if(type!=type_int){
+                error(25);
                 return;
             }
             gen(lod,t.name_space,t.index); //找到变量值并入栈
             getNextToken(); // eat id
             return;
         }
-
-
-
-        case tok_uintnum: //因子是一个立即数
+        case tok_intnum: //因子是一个立即数
         {
             int num = (int)NumVal;
             gen(lit,0,num);
@@ -1077,6 +1281,7 @@ void floatexpr(int my_lev){
             break;
         }
         default:{
+
             return;
         }
     }
@@ -1101,6 +1306,7 @@ void floatterm(int my_lev){
         break;
     }
     default:{
+
         return;
     }
     }
@@ -1111,16 +1317,41 @@ void floatfactor(int my_lev){
         return;
     }
     switch(CurTok){
+        case tok_sub:
+        {
+            getNextToken(); //eat -
+            if(CurTok!=tok_identifier){
+                error(9);
+                return;
+            }
+            std::string id=IdentifierStr;
+            struct tablestruct t=getTablestructById(my_lev,id);
+            if(cantFindName){
+                error(5);
+                return;
+            }
+            int type=t.type;
+            if(type!=type_float){
+                error(26);
+                return;
+            }
+            //上面检查完是否定义和类型
+            getNextToken();//eat cid
+            gen(lod,t.name_space,t.index); //找到变量值并入栈
+            gen(opr,0,1); //栈顶取反
+            return;
+        }
         case tok_identifier:
         {
             std::string id=IdentifierStr;
             struct tablestruct t=getTablestructById(my_lev,id);
             if(cantFindName){
+                error(5);
                 return;
             }
             int type=t.type;
             if(type!=type_float){
-                error(4);
+                error(26);
                 return;
             }
             gen(lod,t.name_space,t.index); //找到变量值并入栈
@@ -1205,6 +1436,12 @@ void boolterm_(int my_lev){
         boolterm_(my_lev);
         gen(opr,0,17);
     }
+    else if(CurTok==tok_xor){
+        getNextToken(); //eat XOR
+        boolfactor(my_lev);
+        boolterm_(my_lev);
+        gen(opr,0,27);
+    }
     else{
         return;
     }
@@ -1249,10 +1486,11 @@ void boolfactor(int my_lev){
         std::string id=IdentifierStr;
         struct tablestruct t=getTablestructById(my_lev,id);
         if(cantFindName){
+            error(5);
             return;
         }
         int type=t.type;
-        if(type==type_uint){
+        if(type==type_int){
             rel(my_lev);
 
             return;
@@ -1272,7 +1510,7 @@ void boolfactor(int my_lev){
             return;
         }
     }
-    else if(CurTok==tok_uintnum){
+    else if(CurTok==tok_intnum){
         rel(my_lev);
 
         return;
@@ -1282,11 +1520,33 @@ void boolfactor(int my_lev){
 
         return;
     }
+    else if(CurTok==tok_odd){
+        isOdd(my_lev);
+        return;
+    }
+    else if (CurTok==tok_sub) {
+        nega_rel(my_lev);
+        return;
+    }
     else{
         //log_error("unexcepted identifier");
         error(10);
         return;
     }
+}
+
+void isOdd(int my_lev){
+    if(err>=maxerr){
+        return;
+    }
+    if(CurTok!=tok_odd){
+        error(9);
+        return;
+    }
+    getNextToken(); //eat ODD
+    intexpr(my_lev);
+    gen(opr,0,28);
+    return;
 }
 
 void rel(int my_lev){
@@ -1297,23 +1557,25 @@ void rel(int my_lev){
         std::string id=IdentifierStr;
         struct tablestruct t=getTablestructById(my_lev,id);
         if(cantFindName){
+            error(5);
             return;
         }
         int type=t.type;
-        if(type==type_uint){ //id is a number value
+        if(type==type_int){ //id is a number value
             gen(lod,t.name_space,t.index); //找到变量地址并将值入栈
         }
         else{
-            error(12);
+            error(25);
             return;
         }
         getNextToken(); // eat id
     }
-    else if(CurTok==tok_uintnum){
+    else if(CurTok==tok_intnum){
         int num=(int)NumVal;
         getNextToken(); // eat NUM
         gen(lit,0,num); //直接将当前立即数值入栈
     }
+
     int relop=CurTok;
     switch(CurTok){
         case tok_lss:{ // <
@@ -1375,7 +1637,159 @@ void rel(int my_lev){
         }
     }
     return;
+}
 
+void nega_rel(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
+    if(CurTok!=tok_sub){
+        error(9);
+        return;
+    }
+    getNextToken(); //eat -
+    if(CurTok==tok_identifier){
+        std::string id=IdentifierStr;
+        struct tablestruct t=getTablestructById(my_lev,id);
+        if(cantFindName){
+            error(5);
+            return;
+        }
+        int type=t.type;
+        if(type==type_int){ //id is a number value
+            getNextToken(); // eat id
+            gen(lod,t.name_space,t.index); //找到变量地址并将值入栈
+            gen(opr,0,1); //取反
+            int relop=CurTok;
+            switch(CurTok){
+                case tok_lss:{ // <
+                getNextToken();//eat <
+                break;
+                }
+                case tok_leq:{ // <=
+                getNextToken(); // eat <=
+                break;
+                }
+                case tok_gtr:{ // >
+                getNextToken(); // eat >
+                break;
+                }
+                case tok_geq:{ // >=
+                getNextToken(); // eat >=
+                break;
+                }
+                case tok_eql:{ // ==
+                getNextToken(); // eat ==
+                break;
+                }
+                case tok_neq:{ // !=
+                getNextToken(); // eat !=
+                break;
+                }
+                default:{
+                //log_error("unexcepted token!");
+                error(11);
+                return;
+                }
+            }
+            intexpr(my_lev);
+            switch(relop){
+                case tok_lss:{ // <
+                    gen(opr,0,10);
+                    break;
+                }
+                case tok_leq:{ // <=
+                    gen(opr,0,13);
+                    break;
+                }
+                case tok_gtr:{ // >
+                    gen(opr,0,12);
+                    break;
+                }
+                case tok_geq:{ // >=
+                    gen(opr,0,11);
+                    break;
+                }
+                case tok_eql:{ // ==
+                    gen(opr,0,8);
+                    break;
+                }
+                case tok_neq:{ // !=
+                    gen(opr,0,9);
+                    break;
+                }
+            }
+        }
+        else if(type==type_float){
+            getNextToken(); // eat id
+            gen(lod,t.name_space,t.index); //找到变量地址并将值入栈
+            gen(opr,0,1); //取反
+            int relop=CurTok;
+            switch(CurTok){
+                case tok_lss:{ // <
+                getNextToken();//eat <
+                break;
+                }
+                case tok_leq:{ // <=
+                getNextToken(); // eat <=
+                break;
+                }
+                case tok_gtr:{ // >
+                getNextToken(); // eat >
+                break;
+                }
+                case tok_geq:{ // >=
+                getNextToken(); // eat >=
+                break;
+                }
+                case tok_eql:{ // ==
+                getNextToken(); // eat ==
+                break;
+                }
+                case tok_neq:{ // !=
+                getNextToken(); // eat !=
+                break;
+                }
+                default:{
+                //log_error("unexcepted token!");
+                error(11);
+                return;
+                }
+            }
+            floatexpr(my_lev);
+            switch(relop){
+            case tok_lss:{ // <
+                gen(opr,0,10);
+                break;
+            }
+            case tok_leq:{ // <=
+                gen(opr,0,13);
+                break;
+            }
+            case tok_gtr:{ // >
+                gen(opr,0,12);
+                break;
+            }
+            case tok_geq:{ // >=
+                gen(opr,0,11);
+                break;
+            }
+            case tok_eql:{ // ==
+                gen(opr,0,8);
+                break;
+            }
+            case tok_neq:{ // !=
+                gen(opr,0,9);
+                break;
+            }
+            }
+        }
+        else{
+            error(25);
+            return;
+        }
+    }
+    return;
 }
 
 void frel(int my_lev){
@@ -1386,6 +1800,7 @@ void frel(int my_lev){
         std::string id=IdentifierStr;
         struct tablestruct t=getTablestructById(my_lev,id);
         if(cantFindName){
+            error(5);
             return;
         }
         int type=t.type;
@@ -1638,8 +2053,8 @@ void _exeOne(){
                         //to-do 加入我补充的运算符
                     case 17: // && 对布尔类型做 与 结果置于栈顶
                     {
-                        int a=s[SP-2];
-                        int b=s[SP-1];
+                        int a=(int)s[SP-2];
+                        int b=(int)s[SP-1];
                         int res=0;
                         if(a==1&&b==1)
                             res=1;
@@ -1649,8 +2064,8 @@ void _exeOne(){
                     }
                     case 18:// ||
                     {
-                        int a=s[SP-2];
-                        int b=s[SP-1];
+                        int a=(int)s[SP-2];
+                        int b=(int)s[SP-1];
                         int res=1;
                         if(a==0&&b==0)
                             res=0;
@@ -1660,7 +2075,7 @@ void _exeOne(){
                     }
                     case 19: // 栈顶bool 取反
                     {
-                        int res=s[SP-1];
+                        int res=(int)s[SP-1];
                         if(res==1){
                             res==0;
                         }
@@ -1726,6 +2141,34 @@ void _exeOne(){
                         SP++;
                         break;
                         }
+                    case 26: //次栈顶除以栈顶 余数入栈 int mod
+                    {
+                        int a=(int)s[SP-2];
+                        int b=(int)s[SP-1];
+                        int temp=a/b;
+                        int res=a-temp*b;
+                        SP=SP-1;
+                        s[SP-1]=res;
+                        break;
+                    }
+                    case 27: // XOR 对布尔类型做 异或 结果置于栈顶
+                    {
+                        int a=(int)s[SP-2];
+                        int b=(int)s[SP-1];
+                        int res=0;
+                        if(a!=b)
+                            res=1;
+                        SP=SP-1;
+                        s[SP-1]=res;
+                        break;
+                    }
+                    case 28: // 判断栈顶是不是奇数 是奇数1 不是奇数0 结果置于栈顶
+                    {
+                        int a=(int)s[SP-1];
+                        s[SP-1]=(int)a%2;
+                        break;
+                    }
+
 
                 }
                 break; //end of case opr
@@ -1837,6 +2280,8 @@ void init(){
     firsts[Vntab["decls"]].push_back(tok_int);
     firsts[Vntab["decls"]].push_back(tok_float);
     firsts[Vntab["decls"]].push_back(tok_identifier); // 加上stmt首符
+    firsts[Vntab["decls"]].push_back(tok_selfadd);
+    firsts[Vntab["decls"]].push_back(tok_selfmin);
     firsts[Vntab["decls"]].push_back(tok_if);
     firsts[Vntab["decls"]].push_back(tok_while);
     firsts[Vntab["decls"]].push_back(tok_write);
@@ -1849,6 +2294,8 @@ void init(){
     firsts[Vntab["decl"]].push_back(tok_int);
     firsts[Vntab["decl"]].push_back(tok_float);
     firsts[Vntab["stmts"]].push_back(tok_identifier); //
+    firsts[Vntab["stmts"]].push_back(tok_selfadd);
+    firsts[Vntab["stmts"]].push_back(tok_selfmin);
     firsts[Vntab["stmts"]].push_back(tok_if);
     firsts[Vntab["stmts"]].push_back(tok_while);
     firsts[Vntab["stmts"]].push_back(tok_write);
@@ -1858,6 +2305,9 @@ void init(){
     firsts[Vntab["stmts"]].push_back(tok_lbrace);
     firsts[Vntab["stmts"]].push_back(tok_rbrace); //加上program 结尾的}
     firsts[Vntab["stmt"]].push_back(tok_identifier); //
+    firsts[Vntab["stmt"]].push_back(tok_selfadd);
+    firsts[Vntab["stmt"]].push_back(tok_selfmin);
+    firsts[Vntab["stmt"]].push_back(tok_identifier);
     firsts[Vntab["stmt"]].push_back(tok_if);
     firsts[Vntab["stmt"]].push_back(tok_while);
     firsts[Vntab["stmt"]].push_back(tok_write);
@@ -1866,17 +2316,22 @@ void init(){
     firsts[Vntab["stmt"]].push_back(tok_readf);
     firsts[Vntab["stmt"]].push_back(tok_lbrace);
     firsts[Vntab["intexpr"]].push_back(tok_identifier); //
-    firsts[Vntab["intexpr"]].push_back(tok_uintnum);
+    firsts[Vntab["intexpr"]].push_back(tok_intnum);
+    firsts[Vntab["intexpr"]].push_back(tok_sub);
     firsts[Vntab["intexpr"]].push_back(tok_lparen);
     firsts[Vntab["boolexpr"]].push_back(tok_identifier); //
     firsts[Vntab["boolexpr"]].push_back(tok_true);
     firsts[Vntab["boolexpr"]].push_back(tok_false);
     firsts[Vntab["boolexpr"]].push_back(tok_not);
     firsts[Vntab["boolexpr"]].push_back(tok_lparen);
-    firsts[Vntab["boolexpr"]].push_back(tok_uintnum);
+    firsts[Vntab["boolexpr"]].push_back(tok_intnum);
+    firsts[Vntab["boolexpr"]].push_back(tok_sub);
     firsts[Vntab["boolexpr"]].push_back(tok_floatnum);
+    firsts[Vntab["boolexpr"]].push_back(tok_odd);
+
     firsts[Vntab["floatexpr"]].push_back(tok_identifier); //
     firsts[Vntab["floatexpr"]].push_back(tok_floatnum);
+    firsts[Vntab["floatexpr"]].push_back(tok_sub);
     firsts[Vntab["floatexpr"]].push_back(tok_lparen);
 
     fstack=fopen("temp-stack.txt","w");

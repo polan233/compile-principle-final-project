@@ -198,6 +198,7 @@ void compiler:: compile(){
 }
 
 void compiler:: run(){
+    compile();
     exeAll();
     //输出log信息
     QFile flog("temp-log.txt");
