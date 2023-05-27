@@ -30,6 +30,10 @@ private slots:
     //    void setFontItalic(bool italic);
     void selectFont();
     void compile();
+    void run();
+    void singleStep();
+
+    //void updateInput();
 
 private:
     Ui::compiler *ui;

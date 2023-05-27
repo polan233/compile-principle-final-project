@@ -21,6 +21,9 @@ enum Token {
     tok_while = -6,
     tok_write = -7,
     tok_read = -8,
+    tok_float =-9,
+    tok_writef =-10,
+    tok_readf=-11,
 
     //symbols
     tok_add = -50, // +
@@ -49,13 +52,15 @@ enum Token {
     tok_uintnum= -101, // unsigned int NUM
     tok_true = -102,
     tok_false = -103,
+    tok_floatnum = -104,
 };
 
 enum type{
     type_uint,
-    type_bool
+    type_bool,
+    type_float,
 };
-#define typeCount 2
+#define typeCount 3
 
 #define txmax 100
 
@@ -104,11 +109,17 @@ void if_stmt(int lev);
 void while_stmt(int lev);
 void write_stmt(int lev);
 void read_stmt(int lev);
+void writef_stmt(int lev);
+void readf_stmt(int lev);
 void stmt(int lev);
 
 void intexpr(int lev); // expression with type int
 void intterm(int lev);
 void intfactor(int lev);
+
+void floatexpr(int lev); // expression with type float
+void floatterm(int lev);
+void floatfactor(int lev);
 
 void boolexpr(int lev); //expression with type bool
 void boolexpr_(int lev);
@@ -116,9 +127,10 @@ void boolterm(int lev);
 void boolterm_(int lev);
 void boolfactor(int lev);
 void rel(int lev);
+void frel(int lev);
 
 
-#define Vn_count 20
+#define Vn_count 26
 
 
 void error();
@@ -147,10 +159,10 @@ struct instruction
 {
     enum fct f; // 虚拟机代码指令
     int l; //namespace
-    int a; //根据f的不同而不同
+    double a; //根据f的不同而不同
 };
 
-void gen(enum fct x,int y,int z);
+void gen(enum fct x,int y,double z);
 void exeAll();
 int exeOne();
 
@@ -162,6 +174,8 @@ void printStack();
 #define amax 2048 //地址上界
 #define stacksize 500 // 运行时数据栈元素最多500
 
+static int waitInput=0;
+static std::string inputtext="";
 
 
 #endif // COMPILER_PROGRAM_H

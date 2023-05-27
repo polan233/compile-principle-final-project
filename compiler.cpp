@@ -11,6 +11,7 @@
 #include "CodeEditor.h"
 #include "CodeHighLighter.h"
 #include "compiler_program.h"
+//to-do 加入修改后多一个星号的功能 加入退出前询问是否保存的功能
 compiler::compiler(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::compiler)
@@ -21,7 +22,6 @@ compiler::compiler(QWidget *parent)
 //    codeEditor->setMode(EditorMode::EDIT);
 //    codeEditor->setPlainText("test");
 
-    this->setCentralWidget(ui->codeEditor);
     ui->codeEditor->setMode(EditorMode::EDIT);
     QFont font;
     //设置文字字体
@@ -45,6 +45,9 @@ compiler::compiler(QWidget *parent)
     connect(ui->actionSaveAs, &QAction::triggered , this , &compiler::saveAs);
     connect(ui->actionSet_Font,&QAction::triggered , this , &compiler::selectFont);
     connect(ui->actionCompile,&QAction::triggered,this,&compiler::compile);
+    connect(ui->actionRun,&QAction::triggered,this,&compiler::run);
+    connect(ui->actionDebug,&QAction::triggered,this,&compiler::singleStep);
+
 }
 
 compiler::~compiler()
@@ -156,5 +159,93 @@ void compiler:: compile(){
     file.close();
     int err=compileCX(currentFile.toStdString());
     cout << err;
+
+    //输出编译信息
+    QFile flog("temp-log.txt");
+    if(!flog.open(QIODevice::ReadOnly|QFile::Text)){ //cant open
+        QMessageBox::warning(this,"Warning","Cannot open file:"+flog.errorString());
+        return;
+    }
+    QTextStream login(&flog);
+    text=login.readAll();
+    ui->log->setPlainText(text);
+    flog.close();
+
+    if(err==0){
+        //输出符号表
+        QFile ftable("temp-table.txt");
+        if(!ftable.open(QIODevice::ReadOnly|QFile::Text)){ //cant open
+            QMessageBox::warning(this,"Warning","Cannot open file:"+ftable.errorString());
+            return;
+        }
+        QTextStream tablein(&ftable);
+        text=tablein.readAll();
+        ui->table->setPlainText(text);
+        ftable.close();
+        //输出中间代码
+        QFile fcode("temp-code.txt");
+        if(!fcode.open(QIODevice::ReadOnly|QFile::Text)){ //cant open
+            QMessageBox::warning(this,"Warning","Cannot open file:"+fcode.errorString());
+            return;
+        }
+        QTextStream codein(&fcode);
+        text=codein.readAll();
+        ui->pcode->setPlainText(text);
+        fcode.close();
+    }
+
+
 }
 
+void compiler:: run(){
+    exeAll();
+    //输出log信息
+    QFile flog("temp-log.txt");
+    if(!flog.open(QIODevice::ReadOnly|QFile::Text)){ //cant open
+        QMessageBox::warning(this,"Warning","Cannot open file:"+flog.errorString());
+        return;
+    }
+    QTextStream login(&flog);
+    QString text=login.readAll();
+    ui->log->setPlainText(text);
+    flog.close();
+}
+
+void compiler:: singleStep(){
+    if(exeOne()){
+        //输出log信息
+        QFile flog("temp-log.txt");
+        if(!flog.open(QIODevice::ReadOnly|QFile::Text)){ //cant open
+            QMessageBox::warning(this,"Warning","Cannot open file:"+flog.errorString());
+            return;
+        }
+        QTextStream login(&flog);
+        QString text=login.readAll();
+        ui->log->setPlainText(text);
+        flog.close();
+
+        //输出数据栈
+        QFile fs("temp-stack.txt");
+        if(!fs.open(QIODevice::ReadOnly|QFile::Text)){ //cant open
+            QMessageBox::warning(this,"Warning","Cannot open file:"+fs.errorString());
+            return;
+        }
+        QTextStream sin(&fs);
+        text=sin.readAll();
+        ui->stack->setPlainText(text);
+        fs.close();
+    }
+    else{
+        QMessageBox::information(this,"提示","运行完毕!");
+        //输出log信息
+        QFile flog("temp-log.txt");
+        if(!flog.open(QIODevice::ReadOnly|QFile::Text)){ //cant open
+            QMessageBox::warning(this,"Warning","Cannot open file:"+flog.errorString());
+            return;
+        }
+        QTextStream login(&flog);
+        QString text=login.readAll();
+        ui->log->setPlainText(text);
+        flog.close();
+    }
+}

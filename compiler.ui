@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1322</width>
-    <height>812</height>
+    <width>1401</width>
+    <height>844</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,50 +18,215 @@
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>10</y>
+      <y>20</y>
       <width>851</width>
-      <height>481</height>
+      <height>561</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Consolas</family>
+      <pointsize>14</pointsize>
+     </font>
     </property>
    </widget>
    <widget class="QPlainTextEdit" name="pcode">
     <property name="geometry">
      <rect>
       <x>880</x>
-      <y>10</y>
+      <y>20</y>
       <width>251</width>
-      <height>481</height>
+      <height>581</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Cascadia Code SemiBold</family>
+      <pointsize>12</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="readOnly">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="QPlainTextEdit" name="stack">
     <property name="geometry">
      <rect>
       <x>1140</x>
-      <y>10</y>
-      <width>171</width>
-      <height>481</height>
+      <y>20</y>
+      <width>251</width>
+      <height>581</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Lucida Console</family>
+      <pointsize>11</pointsize>
+     </font>
+    </property>
+    <property name="readOnly">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="QPlainTextEdit" name="log">
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>510</y>
-      <width>501</width>
-      <height>211</height>
+      <y>610</y>
+      <width>591</width>
+      <height>151</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Lucida Console</family>
+      <pointsize>11</pointsize>
+     </font>
     </property>
    </widget>
    <widget class="QPlainTextEdit" name="table">
     <property name="geometry">
      <rect>
-      <x>530</x>
-      <y>510</y>
-      <width>781</width>
-      <height>211</height>
+      <x>830</x>
+      <y>610</y>
+      <width>561</width>
+      <height>151</height>
      </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Lucida Console</family>
+      <pointsize>11</pointsize>
+     </font>
+    </property>
+    <property name="readOnly">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>0</y>
+      <width>111</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Arial</family>
+      <pointsize>11</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>代码编辑</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>880</x>
+      <y>0</y>
+      <width>111</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Arial</family>
+      <pointsize>11</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>中间代码</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_3">
+    <property name="geometry">
+     <rect>
+      <x>1140</x>
+      <y>0</y>
+      <width>111</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Arial</family>
+      <pointsize>11</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>数据栈</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_4">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>590</y>
+      <width>111</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Arial</family>
+      <pointsize>11</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>终端输出</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_5">
+    <property name="geometry">
+     <rect>
+      <x>830</x>
+      <y>590</y>
+      <width>51</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Arial</family>
+      <pointsize>11</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>符号表</string>
+    </property>
+   </widget>
+   <widget class="QPlainTextEdit" name="plainTextEdit">
+    <property name="geometry">
+     <rect>
+      <x>620</x>
+      <y>610</y>
+      <width>201</width>
+      <height>151</height>
+     </rect>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>620</x>
+      <y>590</y>
+      <width>111</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <family>Arial</family>
+      <pointsize>11</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>终端输入</string>
     </property>
    </widget>
   </widget>
@@ -70,7 +235,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1322</width>
+     <width>1401</width>
      <height>23</height>
     </rect>
    </property>

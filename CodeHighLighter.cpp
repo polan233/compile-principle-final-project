@@ -70,7 +70,7 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     color.setRgb(205,129,98);
     QBrush brush_kw(color,Qt::SolidPattern);
     QStringList keywords = {
-    "if","else","while","write","read","def"
+    "if","else","while","write","read","def","writef","readf",
     };
     //keywords mark as salmon3
     keywordFormat.setForeground(brush_kw);
@@ -96,7 +96,7 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
 
     //commands
     QStringList types = {
-        "int","bool","double"
+        "int","bool","float"
     };
 
     //types mark as darkMagenta
