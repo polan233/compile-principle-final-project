@@ -52,7 +52,7 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     // symbols like + - { green
     //"\\+|-|\\*|/|<|>|=|!|&|\\||;|\\(|\\)|{|}"
     symbolFormat.setForeground(Qt::darkGreen);
-    rule.pattern = QRegExp("\\+|-|\\*|\\/|<|>|=|!|\\&|\\||;|\\(|\\)|\\{|\\}|\\%|\\[|\\]");
+    rule.pattern = QRegExp("\\+|-|\\*|\\/|<|>|=|!|\\&|\\||;|\\(|\\)|\\{|\\}|\\%|\\[|\\]|\\:");
     rule.format = symbolFormat;
     highlightingRules.append(rule);
     rule.pattern = QRegExp("\\bXOR\\b");
@@ -76,7 +76,7 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     color.setRgb(205,129,98);
     QBrush brush_kw(color,Qt::SolidPattern);
     QStringList keywords = {
-    "if","else","while","write","read","def","writef","readf",
+    "if","else","while","write","read","def","writef","readf","for","do","switch","case","continue","break",
     };
     //keywords mark as salmon3
     keywordFormat.setForeground(brush_kw);
