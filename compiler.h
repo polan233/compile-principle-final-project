@@ -2,6 +2,7 @@
 #define COMPILER_H
 
 #include <QMainWindow>
+#include <QEventLoop>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class compiler; }
@@ -14,6 +15,9 @@ class compiler : public QMainWindow
 public:
     compiler(QWidget *parent = nullptr);
     ~compiler();
+    double getInput();
+    void outputLog(std::string msg);
+
 
 private slots:
     void newDocument();

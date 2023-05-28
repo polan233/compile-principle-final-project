@@ -50,6 +50,8 @@ enum Token {
     tok_odd = -71, // ODD
     tok_selfadd = -72, // ++
     tok_selfmin = -73, // --
+    tok_lbracket = -74, // [
+    tok_rbracket = -75, // ]
 
 
     //other
@@ -64,8 +66,10 @@ enum type{
     type_int,
     type_bool,
     type_float,
+    type_iarr,
+    type_farr,
 };
-#define typeCount 3
+#define typeCount 5
 
 #define txmax 100
 
@@ -75,7 +79,7 @@ struct tablestruct
     int type;
     double val;
     int size; //需要分配的数据区空间,留给方程使用
-    int index; //在本namespace符号表中下标
+    int index; //在本namespace分配的堆栈中下标
     int name_space; //所处的namespace
 };
 
@@ -97,7 +101,6 @@ int getNextToken();
 #define MAXLINE 81
 
 void getch();
-int getNextChar();
 
 void error(int n);
 int test(std::string Vn_name);
@@ -149,9 +152,9 @@ enum fct{
     lit, opr, lod,
     sto, cal, ini,
     jmp, jpc, ssp,
-    lsp,
+    lsp, old, ost,
 };
-#define fctnum 10
+#define fctnum 12
 /*
  * lit 把一个常数置入栈顶
  * lod 把一个变量置入栈顶         lod namespace index

@@ -7,7 +7,11 @@
 #include <iostream>
 #include <memory>
 #include <cstring>
+#include <compiler.h>
 using namespace std;
+
+extern compiler* w;
+extern QEventLoop loop;
 
 std::string IdentifierStr;
 double NumVal;
@@ -33,13 +37,16 @@ char filename[MAXLINE];
 
 int cx=0;
 struct instruction code[cxmax];
-std::string codeName[fctnum]={"lit","opr","lod","sto","cal","int","jmp","jpc","ssp","lsp"};
+std::string codeName[fctnum]={"lit","opr","lod","sto","cal","int","jmp","jpc","ssp","lsp","old","ost"};
 
 int namespacecount=-1;
+int dxs[maxnamespace];
+
 
 int PC=0;
 int LR=0;
 int SP=0; //空栈 SP指向下一个入栈口 栈顶元素为 SP-1
+
 int base[maxnamespace]={0};
 struct instruction curCode; //当前指令
 double s[stacksize]={0}; //栈
@@ -53,7 +60,7 @@ struct tablestruct temp_tablestruct;
 std::vector<struct tablestruct> tables[maxnamespace];
 std::vector< std::vector<int> > upperNamespaces(maxnamespace,std::vector<int>(0)); //表示namespace的依赖 upperNamespaces[namespace] 中存namespace的上级命名空间
 int cantFindName=0;
-std::string typeName[typeCount]={"int","bool","float"};
+std::string typeName[typeCount]={"int","bool","float","iarr","farr"};
 
 map<std::string,int> Vntab;
 vector<vector<int>> firsts(Vn_count,std::vector<int>(0));
@@ -349,6 +356,14 @@ int gettok(){
         getch();
         return tok_rbrace;
     }
+    if(ch=='['){
+        getch();
+        return tok_lbracket;
+    }
+    if(ch==']'){
+        getch();
+        return tok_rbracket;
+    }
 
     return tok_illegel;
 }
@@ -497,18 +512,30 @@ void error(int n){
         case 26:
             fprintf(ferr,"line%d:%d err%d: Expect a float type!\n",preline,precc-1,n);
             break;
+        case 27:
+            fprintf(ferr,"line%d:%d err%d: Expect a ]!\n",preline,precc-1,n);
+            break;
+        case 28:
+            fprintf(ferr,"line%d:%d err%d: Expect a integer to indicate the array size!\n",preline,precc-1,n);
+            break;
+        case 29:
+            fprintf(ferr,"line%d:%d err%d: Array size must be greater than 0!\n",preline,precc-1,n);
+            break;
+        case 30:
+            fprintf(ferr,"line%d:%d err%d: Expect a [!\n",preline,precc-1,n);
+            break;
     }
     err = err + 1;
 }
 
 
-void enter(int name_space,int type,std::string name,int size,double val){
+void enter(int name_space,int type,std::string name,int size,double val,int dx){
     temp_tablestruct.name=name;
     temp_tablestruct.size=size;
     temp_tablestruct.val=val;
     temp_tablestruct.type=type;
     temp_tablestruct.name_space=name_space;
-    temp_tablestruct.index=tables[name_space].size();
+    temp_tablestruct.index=dx;
     tables[name_space].push_back(temp_tablestruct);
 }
 
@@ -584,12 +611,52 @@ void decl(int my_lev){
         return;
     }
     if(CurTok==tok_int){
-        getNextToken();
+        getNextToken(); // eat int
         if(CurTok==tok_identifier){
             std::string id= IdentifierStr;
             gen(ini,0,1);
-            enter(my_lev,type_int,id,1,0);
+            enter(my_lev,type_int,id,1,0,dxs[my_lev]);
+            dxs[my_lev]+=1;
             getNextToken();
+            if(CurTok==tok_semicolon){
+                getNextToken();
+                return;
+            }
+            else{
+                //log_error("missing ; in the end of decalaration!");
+                error(2);
+                return;
+            }
+        }
+        else if(CurTok==tok_lbracket){ // int 数组
+            getNextToken();//eat [
+            if(CurTok!=tok_intnum){ //缺少数组大小
+                error(28);
+                return;
+            }
+
+            int size=(int)NumVal;
+            if(size<=0){ //数组大小不对劲
+                error(29);
+                return;
+            }
+            getNextToken(); //eat num
+
+            if(CurTok!=tok_rbracket){ //缺少右方括号
+                error(27);
+                return;
+            }
+            getNextToken(); //eat ]
+
+            if(CurTok!=tok_identifier){
+                error(3);
+                return;
+            }
+            std::string id=IdentifierStr;
+            gen(ini,0,size); //分配控件
+            enter(my_lev,type_iarr,id,size,0,dxs[my_lev]);
+            dxs[my_lev]+=size;
+            getNextToken(); //eat id
             if(CurTok==tok_semicolon){
                 getNextToken();
                 return;
@@ -611,7 +678,8 @@ void decl(int my_lev){
         if(CurTok==tok_identifier){
             std::string id= IdentifierStr;
             gen(ini,0,1);
-            enter(my_lev,type_bool,id,1,0);
+            enter(my_lev,type_bool,id,1,0,dxs[my_lev]);
+            dxs[my_lev]+=1;
             getNextToken();
             if(CurTok==tok_semicolon){
                 getNextToken();
@@ -634,10 +702,50 @@ void decl(int my_lev){
         if(CurTok==tok_identifier){
             std::string id= IdentifierStr;
             gen(ini,0,1); //分配空间
-            enter(my_lev,type_float,id,1,0);
+            enter(my_lev,type_float,id,1,0,dxs[my_lev]);
+            dxs[my_lev]+=1;
             getNextToken();
             if(CurTok==tok_semicolon){
                 getNextToken();
+                return;
+            }
+            else{
+                //log_error("missing ; in the end of decalaration!");
+                error(2);
+                return;
+            }
+        }
+        else if(CurTok==tok_lbracket){ //float 数组
+            getNextToken();//eat [
+            if(CurTok!=tok_intnum){ //缺少数组大小
+                error(28);
+                return;
+            }
+
+            int size=(int)NumVal;
+            if(size<=0){ //数组大小不对劲
+                error(29);
+                return;
+            }
+            getNextToken(); //eat num
+
+            if(CurTok!=tok_rbracket){ //缺少右方括号
+                error(27);
+                return;
+            }
+            getNextToken(); //eat ]
+
+            if(CurTok!=tok_identifier){
+                error(3);
+                return;
+            }
+            std::string id=IdentifierStr;
+            gen(ini,0,size); //分配空间
+            enter(my_lev,type_farr,id,size,0,dxs[my_lev]);
+            dxs[my_lev]+=size;
+            getNextToken(); //eat id
+            if(CurTok==tok_semicolon){
+                getNextToken(); //eat ;
                 return;
             }
             else{
@@ -696,7 +804,7 @@ struct tablestruct& getTablestructById(int name_space,std::string name){
     //倒叙搜索searchRange 在符号表中找name
     for(int i=searchRange.size()-1;i>=0;i--){
         int searchns=searchRange[i];
-        for(int j=0;j<tables[searchns].size();j++){
+        for(int j=tables[searchns].size()-1;j>=0;j--){ //倒序查找,重复的定义我们取最近的
             if(tables[searchns][j].name==name){
                 return tables[searchns][j]; //找到了
             }
@@ -793,74 +901,169 @@ void assign_stmt(int my_lev){
     //            //log_error("undeclared identifier!");
     //        }
     getNextToken();//eat id;
-    if(CurTok==tok_assign){
-        getNextToken();//eat =
-        switch(type){
-            case type_int:{
-                intexpr(my_lev);
-                break;
+    if(type==type_bool||type==type_int||type==type_float)
+    {
+        if(CurTok==tok_assign){
+            getNextToken();//eat =
+            switch(type){
+                case type_int:{
+                    intexpr(my_lev);
+                    break;
+                }
+                case type_bool:{
+                    boolexpr(my_lev);
+                    break;
+                }
+                case type_float:{
+                    floatexpr(my_lev);
+                    break;
+                }
+                default:{
+                    //log_error("undeclared identifier!");
+                    error(4);
+                    return;
+                }
             }
-            case type_bool:{
-                boolexpr(my_lev);
-                break;
+            gen(sto,t.name_space,t.index); // 这时候上面表达式的值会在栈顶,所以我们将值直接sto进符号表
+            if(CurTok==tok_semicolon){
+                getNextToken();//eat ;
+                return;
             }
-            case type_float:{
-                floatexpr(my_lev);
-                break;
-            }
-            default:{
-                //log_error("undeclared identifier!");
-                error(5);
+            else{
+                //log_error("missing ; at the end of expression");
+                error(2);
                 return;
             }
         }
-        gen(sto,t.name_space,t.index); // 这时候上面表达式的值会在栈顶,所以我们将值直接sto进符号表
-        if(CurTok==tok_semicolon){
-            getNextToken();//eat ;
-            return;
+        else if(CurTok==tok_selfadd||CurTok==tok_selfmin){
+            int op=CurTok;
+            getNextToken(); //eat ++ --
+            if(CurTok!=tok_semicolon){
+                error(2);
+                return;
+            }
+            getNextToken(); //eat ;
+            if(type==type_int){
+                switch(op){
+                    case tok_selfadd:
+                    {
+                        gen(lod,t.name_space,t.index);
+                        gen(lit,0,1);
+                        gen(opr,0,2); // aid=aid+1;
+                        gen(sto,t.name_space,t.index);
+                        break;
+                    }
+                    case tok_selfmin:
+                    {
+                        gen(lod,t.name_space,t.index);
+                        gen(lit,0,1);
+                        gen(opr,0,3);
+                        gen(sto,t.name_space,t.index);
+                        break;
+                    }
+                }
+
+            }
+            else{
+                error(24);
+                return;
+            }
         }
-        else{
-            //log_error("missing ; at the end of expression");
-            error(2);
+        else {
+            error(9);
             return;
         }
     }
-    else if(CurTok==tok_selfadd||CurTok==tok_selfmin){
-        int op=CurTok;
-        getNextToken(); //eat ++ --
-        if(CurTok!=tok_semicolon){
-            error(2);
+    else if(type==type_iarr||type==type_farr){
+        if(CurTok!=tok_lbracket){
+            error(30);
             return;
         }
-        getNextToken(); //eat ;
-        if(type==type_int){
-            switch(op){
-                case tok_selfadd:
-                {
-                    gen(lod,t.name_space,t.index);
-                    gen(lit,0,1);
-                    gen(opr,0,2); // aid=aid+1;
-                    gen(sto,t.name_space,t.index);
+        getNextToken(); //eat [
+
+        intexpr(my_lev);
+        //gen(opr,0,29); //栈顶值设为offset
+
+        if(CurTok!=tok_rbracket){
+            error(27);
+            return;
+        }
+        getNextToken(); //ear ]
+
+        if(CurTok==tok_assign){
+            getNextToken();//eat =
+            switch(type){
+                case type_iarr:{
+                    intexpr(my_lev);
                     break;
                 }
-                case tok_selfmin:
-                {
-                    gen(lod,t.name_space,t.index);
-                    gen(lit,0,1);
-                    gen(opr,0,3);
-                    gen(sto,t.name_space,t.index);
+                case type_farr:{
+                    floatexpr(my_lev);
                     break;
+                }
+                default:{
+                    //log_error("undeclared identifier!");
+                    error(4);
+                    return;
                 }
             }
-
+            gen(ost,t.name_space,t.index);
+            // 这时候上面表达式的值会在栈顶,
+            // offset 会在次栈顶
+            //所以我们将值ost
+            if(CurTok==tok_semicolon){
+                getNextToken();//eat ;
+                return;
+            }
+            else{
+                //log_error("missing ; at the end of expression");
+                error(2);
+                return;
+            }
         }
-        else{
-            error(24);
+        else if(CurTok==tok_selfadd||CurTok==tok_selfmin){
+            int op=CurTok;
+            getNextToken(); //eat ++ --
+            if(CurTok!=tok_semicolon){
+                error(2);
+                return;
+            }
+            getNextToken(); //eat ;
+            if(type==type_iarr){
+                switch(op){
+                    case tok_selfadd:
+                    {
+                        gen(old,t.name_space,t.index);
+                        gen(lit,0,1);
+                        gen(opr,0,2); // aid=aid+1;
+                        gen(ost,t.name_space,t.index);
+                        break;
+                    }
+                    case tok_selfmin:
+                    {
+                        gen(old,t.name_space,t.index);
+                        gen(lit,0,1);
+                        gen(opr,0,3);
+                        gen(ost,t.name_space,t.index);
+                        break;
+                    }
+                }
+
+            }
+            else{
+                error(24);
+                return;
+            }
+        }
+        else {
+            error(9);
             return;
         }
+
+
     }
-    else {
-        error(9);
+    else{
+        error(4);
         return;
     }
     return;
@@ -970,7 +1173,6 @@ void read_stmt(int my_lev){
         return;
     }
     getNextToken(); //eat read
-    getNextToken(); // get the identifier
     if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
         struct tablestruct t=getTablestructById(my_lev,id);
@@ -1029,7 +1231,6 @@ void readf_stmt(int my_lev){
         return;
     }
     getNextToken(); //eat read
-    getNextToken(); // get the identifier
     if(CurTok==tok_identifier){
         std::string id=IdentifierStr;
         struct tablestruct t=getTablestructById(my_lev,id);
@@ -1217,13 +1418,37 @@ void intfactor(int my_lev){
                 return;
             }
             int type=t.type;
-            if(type!=type_int){
+            if(type==type_int){
+                gen(lod,t.name_space,t.index); //找到变量值并入栈
+                getNextToken(); // eat id
+                return;
+            }
+            else if(type==type_iarr){
+                getNextToken(); //eat id
+                if(CurTok!=tok_lbracket){
+                    error(30);
+                    return;
+                }
+                getNextToken(); //eat [
+
+                intexpr(my_lev);
+                //gen(opr,0,29);//设置OFFSET
+
+                if(CurTok!=tok_rbracket){
+                    error(27);
+                    return;
+                }
+                getNextToken(); //eat ]
+
+                gen(old,t.name_space,t.index); //找到数组元素然后入栈
+
+                return;
+            }
+            else{
                 error(25);
                 return;
             }
-            gen(lod,t.name_space,t.index); //找到变量值并入栈
-            getNextToken(); // eat id
-            return;
+            break;
         }
         case tok_intnum: //因子是一个立即数
         {
@@ -1350,13 +1575,38 @@ void floatfactor(int my_lev){
                 return;
             }
             int type=t.type;
-            if(type!=type_float){
+            if(type==type_float){
+                gen(lod,t.name_space,t.index); //找到变量值并入栈
+                getNextToken(); // eat id
+                return;
+            }
+            else if(type==type_farr){
+                getNextToken(); //eat id
+                if(CurTok!=tok_lbracket){
+                    error(30);
+                    return;
+                }
+                getNextToken(); //eat [
+
+                intexpr(my_lev);
+                //gen(opr,0,29);//设置OFFSET
+
+                if(CurTok!=tok_rbracket){
+                    error(27);
+                    return;
+                }
+                getNextToken(); //eat ]
+
+                gen(old,t.name_space,t.index); //找到数组元素然后入栈
+                return;
+
+            }
+            else{
                 error(26);
                 return;
             }
-            gen(lod,t.name_space,t.index); //找到变量值并入栈
-            getNextToken(); // eat id
-            return;
+            break;
+
         }
         case tok_floatnum: //因子是一个立即数
         {
@@ -2041,11 +2291,16 @@ void _exeOne(){
 
                     case 16: //读入一个输入置于栈顶 read int
                         {
-                        //to-do 现在是从标准输入流输入 之后改成从qt前端ui输入
-                    //to-do 回去学学ljh 真不会qt
+
                         int res;
-                        printf("please input a int:");
-                        scanf("%d",&res);
+                        printf("please input a int:\n");
+                        ferr=fopen("temp-log.txt","a");
+                        fprintf(ferr,"input int ?\n");
+                        fclose(ferr);
+                        w->outputLog("请输入一个int");
+
+                        loop.exec();
+                        res=(int)w->getInput();
                         s[SP]=res;
                         SP++;
                         break;
@@ -2132,11 +2387,15 @@ void _exeOne(){
 
                     case 25: //读入一个输入置于栈顶 read float
                         {
-                        //to-do 现在是从标准输入流输入 之后改成从qt前端ui输入
-                    //to-do 回去学学ljh 真不会qt
                         double res;
-                        printf("please input a float:");
-                        scanf("%lf",&res);
+                        printf("please input a int:\n");
+                        ferr=fopen("temp-log.txt","a");
+                        fprintf(ferr,"input float ?\n");
+                        fclose(ferr);
+                        w->outputLog("请输入一个float");
+
+                        loop.exec();
+                        res=w->getInput();
                         s[SP]=res;
                         SP++;
                         break;
@@ -2168,6 +2427,8 @@ void _exeOne(){
                         s[SP-1]=(int)a%2;
                         break;
                     }
+
+
 
 
                 }
@@ -2220,6 +2481,24 @@ void _exeOne(){
                 SP=base[curCode.l];
                 break;
                 }
+            case old:
+            //根据栈顶的offset load
+                {
+                int offset=s[SP-1];
+                SP--;
+                double val=s[base[curCode.l]+(int)curCode.a+offset];
+                s[SP]=val;
+                SP++;
+                break;
+                }
+            case ost:
+            //根据次顶的offset store
+                {
+                int offset=s[SP-2];
+                s[base[curCode.l]+(int)curCode.a+offset] = s[SP-1];
+                SP-=2;
+                break;
+                }
         }
     }
 }
@@ -2248,7 +2527,7 @@ void init(){
     memset(s,0,sizeof(double)*stacksize);
     cantFindName=0;
     namespacecount=-1;
-
+    memset(dxs,0,sizeof(int)*maxnamespace);
 
     //建立首符集
     Vntab.insert(pair<string,int>("program",0));

@@ -7,10 +7,14 @@
 #include <QTextStream>
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QLineEdit>
 #include <QDebug>
 #include "CodeEditor.h"
 #include "CodeHighLighter.h"
 #include "compiler_program.h"
+
+extern QEventLoop loop;
+
 //to-do 加入修改后多一个星号的功能 加入退出前询问是否保存的功能
 compiler::compiler(QWidget *parent)
     : QMainWindow(parent)
@@ -47,6 +51,7 @@ compiler::compiler(QWidget *parent)
     connect(ui->actionCompile,&QAction::triggered,this,&compiler::compile);
     connect(ui->actionRun,&QAction::triggered,this,&compiler::run);
     connect(ui->actionDebug,&QAction::triggered,this,&compiler::singleStep);
+    connect(ui->input,&QLineEdit::returnPressed,&loop,&QEventLoop::quit);
 
 }
 
@@ -56,6 +61,27 @@ compiler::~compiler()
 }
 
 
+void compiler::outputLog(std::string msg){
+    QMessageBox::information(this,"提示",QString::fromStdString(msg));
+    //输出编译信息
+    QFile flog("temp-log.txt");
+    if(!flog.open(QIODevice::ReadOnly|QFile::Text)){ //cant open
+        QMessageBox::warning(this,"Warning","Cannot open file:"+flog.errorString());
+        return;
+    }
+    QTextStream login(&flog);
+    QString text=login.readAll();
+    ui->log->setPlainText(text);
+    flog.close();
+    return;
+}
+
+double compiler::getInput(){
+    QString text = ui->input->text();
+    std::string str=text.toStdString();
+    ui->input->setText("");
+    return stod(str);
+}
 
 void compiler::newDocument(){
     currentFile.clear();
@@ -170,6 +196,9 @@ void compiler:: compile(){
     text=login.readAll();
     ui->log->setPlainText(text);
     flog.close();
+
+    //清空数据栈
+    ui->stack->setPlainText("");
 
     if(err==0){
         //输出符号表
