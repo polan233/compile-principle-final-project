@@ -1399,15 +1399,38 @@ void intfactor(int my_lev){
                 return;
             }
             int type=t.type;
-            if(type!=type_int){
+            getNextToken();//eat id
+            if(type==type_int){
+                //上面检查完是否定义和类型
+                gen(lod,t.name_space,t.index); //找到变量值并入栈
+                gen(opr,0,1); //栈顶取反
+                return;
+            }
+            else if(type==type_iarr){
+                if(CurTok!=tok_lbracket){
+                    error(30);
+                    return;
+                }
+                getNextToken(); //eat [
+
+                intexpr(my_lev);
+                //gen(opr,0,29);//设置OFFSET
+
+                if(CurTok!=tok_rbracket){
+                    error(27);
+                    return;
+                }
+                getNextToken(); //eat ]
+
+                gen(old,t.name_space,t.index); //找到数组元素然后入栈
+                gen(opr,0,1); //栈顶取反
+                return;
+            }
+            else{
                 error(25);
                 return;
             }
-            //上面检查完是否定义和类型
-            getNextToken();//eat aid
-            gen(lod,t.name_space,t.index); //找到变量值并入栈
-            gen(opr,0,1); //栈顶取反
-            return;
+
         }
         case tok_identifier:
         {
@@ -1556,15 +1579,39 @@ void floatfactor(int my_lev){
                 return;
             }
             int type=t.type;
-            if(type!=type_float){
+            if(type==type_float){
+                //上面检查完是否定义和类型
+                getNextToken();//eat cid
+                gen(lod,t.name_space,t.index); //找到变量值并入栈
+                gen(opr,0,1); //栈顶取反
+                return;
+            }
+            else if(type==type_farr){
+                getNextToken(); //eat id
+                if(CurTok!=tok_lbracket){
+                    error(30);
+                    return;
+                }
+                getNextToken(); //eat [
+
+                intexpr(my_lev);
+                //gen(opr,0,29);//设置OFFSET
+
+                if(CurTok!=tok_rbracket){
+                    error(27);
+                    return;
+                }
+                getNextToken(); //eat ]
+
+                gen(old,t.name_space,t.index); //找到数组元素然后入栈
+                gen(opr,0,1); //栈顶取反
+                return;
+            }
+            else{
                 error(26);
                 return;
             }
-            //上面检查完是否定义和类型
-            getNextToken();//eat cid
-            gen(lod,t.name_space,t.index); //找到变量值并入栈
-            gen(opr,0,1); //栈顶取反
-            return;
+
         }
         case tok_identifier:
         {
@@ -1812,13 +1859,36 @@ void rel(int my_lev){
         }
         int type=t.type;
         if(type==type_int){ //id is a number value
+            getNextToken(); // eat id
             gen(lod,t.name_space,t.index); //找到变量地址并将值入栈
+            return;
+        }
+        else if(type==type_iarr){
+            getNextToken(); //eat id
+            if(CurTok!=tok_lbracket){
+                error(30);
+                return;
+            }
+            getNextToken(); //eat [
+
+            intexpr(my_lev);
+            //gen(opr,0,29);//设置OFFSET
+
+            if(CurTok!=tok_rbracket){
+                error(27);
+                return;
+            }
+            getNextToken(); //eat ]
+
+            gen(old,t.name_space,t.index); //找到数组元素然后入栈
+
+            return;
         }
         else{
             error(25);
             return;
         }
-        getNextToken(); // eat id
+
     }
     else if(CurTok==tok_intnum){
         int num=(int)NumVal;
@@ -1969,6 +2039,87 @@ void nega_rel(int my_lev){
                     break;
                 }
             }
+            return;
+        }
+        else if(type==type_iarr){
+            getNextToken(); // eat id
+            if(CurTok!=tok_lbracket){
+                error(30);
+                return;
+            }
+            getNextToken(); //eat [
+
+            intexpr(my_lev);
+            //gen(opr,0,29);//设置OFFSET
+
+            if(CurTok!=tok_rbracket){
+                error(27);
+                return;
+            }
+            getNextToken(); //eat ]
+
+            gen(old,t.name_space,t.index); //找到数组元素然后入栈
+            gen(opr,0,1); //取反
+            int relop=CurTok;
+            switch(CurTok){
+                case tok_lss:{ // <
+                getNextToken();//eat <
+                break;
+                }
+                case tok_leq:{ // <=
+                getNextToken(); // eat <=
+                break;
+                }
+                case tok_gtr:{ // >
+                getNextToken(); // eat >
+                break;
+                }
+                case tok_geq:{ // >=
+                getNextToken(); // eat >=
+                break;
+                }
+                case tok_eql:{ // ==
+                getNextToken(); // eat ==
+                break;
+                }
+                case tok_neq:{ // !=
+                getNextToken(); // eat !=
+                break;
+                }
+                default:{
+                //log_error("unexcepted token!");
+                error(11);
+                return;
+                }
+            }
+            intexpr(my_lev);
+            switch(relop){
+                case tok_lss:{ // <
+                    gen(opr,0,10);
+                    break;
+                }
+                case tok_leq:{ // <=
+                    gen(opr,0,13);
+                    break;
+                }
+                case tok_gtr:{ // >
+                    gen(opr,0,12);
+                    break;
+                }
+                case tok_geq:{ // >=
+                    gen(opr,0,11);
+                    break;
+                }
+                case tok_eql:{ // ==
+                    gen(opr,0,8);
+                    break;
+                }
+                case tok_neq:{ // !=
+                    gen(opr,0,9);
+                    break;
+                }
+            }
+            return;
         }
         else if(type==type_float){
             getNextToken(); // eat id
@@ -2033,6 +2184,87 @@ void nega_rel(int my_lev){
                 break;
             }
             }
+            return;
+        }
+        else if(type==type_farr){
+            getNextToken(); // eat id
+            if(CurTok!=tok_lbracket){
+                error(30);
+                return;
+            }
+            getNextToken(); //eat [
+
+            intexpr(my_lev);
+            //gen(opr,0,29);//设置OFFSET
+
+            if(CurTok!=tok_rbracket){
+                error(27);
+                return;
+            }
+            getNextToken(); //eat ]
+
+            gen(old,t.name_space,t.index); //找到数组元素然后入栈
+            gen(opr,0,1); //取反
+            int relop=CurTok;
+            switch(CurTok){
+                case tok_lss:{ // <
+                getNextToken();//eat <
+                break;
+                }
+                case tok_leq:{ // <=
+                getNextToken(); // eat <=
+                break;
+                }
+                case tok_gtr:{ // >
+                getNextToken(); // eat >
+                break;
+                }
+                case tok_geq:{ // >=
+                getNextToken(); // eat >=
+                break;
+                }
+                case tok_eql:{ // ==
+                getNextToken(); // eat ==
+                break;
+                }
+                case tok_neq:{ // !=
+                getNextToken(); // eat !=
+                break;
+                }
+                default:{
+                //log_error("unexcepted token!");
+                error(11);
+                return;
+                }
+            }
+            floatexpr(my_lev);
+            switch(relop){
+            case tok_lss:{ // <
+                gen(opr,0,10);
+                break;
+            }
+            case tok_leq:{ // <=
+                gen(opr,0,13);
+                break;
+            }
+            case tok_gtr:{ // >
+                gen(opr,0,12);
+                break;
+            }
+            case tok_geq:{ // >=
+                gen(opr,0,11);
+                break;
+            }
+            case tok_eql:{ // ==
+                gen(opr,0,8);
+                break;
+            }
+            case tok_neq:{ // !=
+                gen(opr,0,9);
+                break;
+            }
+            }
+            return;
         }
         else{
             error(25);
@@ -2055,13 +2287,33 @@ void frel(int my_lev){
         }
         int type=t.type;
         if(type==type_float){ //id is a float value
+            getNextToken(); // eat id
             gen(lod,t.name_space,t.index); //找到变量地址并将值入栈
+        }
+        else if(type==type_farr){
+            getNextToken(); // eat id
+            if(CurTok!=tok_lbracket){
+                error(30);
+                return;
+            }
+            getNextToken(); //eat [
+
+            intexpr(my_lev);
+            //gen(opr,0,29);//设置OFFSET
+
+            if(CurTok!=tok_rbracket){
+                error(27);
+                return;
+            }
+            getNextToken(); //eat ]
+
+            gen(old,t.name_space,t.index); //找到数组元素然后入栈
         }
         else{
             error(22);
             return;
         }
-        getNextToken(); // eat id
+
     }
     else if(CurTok==tok_floatnum){
         double num=(double)NumVal;
