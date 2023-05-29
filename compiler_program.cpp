@@ -42,7 +42,10 @@ std::string codeName[fctnum]={"lit","opr","lod","sto","cal","int","jmp","jpc","s
 int namespacecount=-1;
 int dxs[maxnamespace];
 
-std::vector<int> fillbackList;
+std::vector<std::vector<int>> fillbackList_break(maxnamespace);
+std::vector<std::vector<int>> fillbackList_continue(maxnamespace);
+std::vector<std::vector<int>> fillbackList_return(maxnamespace);
+int nestbc=-1;
 
 int PC=0;
 int LR=0;
@@ -169,6 +172,12 @@ int gettok(){
         }
         if(IdentifierStr=="case"){
             return tok_case;
+        }
+        if(IdentifierStr=="break"){
+            return tok_break;
+        }
+        if(IdentifierStr=="continue"){
+            return tok_continue;
         }
 
         return tok_identifier;
@@ -540,12 +549,28 @@ void enter(int name_space,int type,std::string name,int size,double val,int dx){
     tables[name_space].push_back(temp_tablestruct);
 }
 
-void fillback(int L){
-    for(int i=0;i<fillbackList.size();i++){
-        int c=fillbackList[i];
-        code[c].a=(double)L;
+void fillback(int L,int fun,int lev){
+    if(fun==fb_break){
+        for(int i=0;i<fillbackList_break[lev].size();i++){
+            int c=fillbackList_break[lev][i];
+            code[c].a=(double)L;
+        }
+        fillbackList_break[lev].clear();
     }
-    fillbackList.clear();
+    else if(fun==fb_continue){
+        for(int i=0;i<fillbackList_continue[lev].size();i++){
+            int c=fillbackList_continue[lev][i];
+            code[c].a=(double)L;
+        }
+        fillbackList_continue[lev].clear();
+    }
+    else if(fun==fb_return){
+        for(int i=0;i<fillbackList_return[lev].size();i++){
+            int c=fillbackList_return[lev][i];
+            code[c].a=(double)L;
+        }
+        fillbackList_return[lev].clear();
+    }
     return;
 }
 
@@ -1138,6 +1163,7 @@ void switchcase_stmt(int my_lev){
         return;
     }
     getNextToken();//eat switch
+    nestbc++;
 
     if(CurTok!=tok_lparen){
         error(7);
@@ -1188,7 +1214,7 @@ void switchcase_stmt(int my_lev){
         getNextToken(); //eat :
 
         block(my_lev);
-        fillbackList.push_back(cx);
+        fillbackList_break[nestbc].push_back(cx);
         gen(jmp,0,0);
     }
 
@@ -1197,8 +1223,9 @@ void switchcase_stmt(int my_lev){
         return;
     }
     getNextToken(); // eat }
-    code[c1].a=cx;
-    fillback(cx); //给之前的block回填跳出switch case 块的地址
+    code[c1].a=cx; //给上一个case回填跳转地址
+    fillback(cx,fb_break,nestbc); //给之前的block回填跳出switch case 块的地址
+    nestbc--;
     gen(opr,0,30); //退出多的一个intexpr值
 
     return;
@@ -2955,7 +2982,14 @@ void init(){
     cantFindName=0;
     namespacecount=-1;
     memset(dxs,0,sizeof(int)*maxnamespace);
-    fillbackList.clear();
+
+    fillbackList_break.clear();
+    fillbackList_break.resize(maxnamespace);
+    fillbackList_continue.clear();
+    fillbackList_continue.resize(maxnamespace);
+    fillbackList_return.clear();
+    fillbackList_return.resize(maxnamespace);
+    nestbc=-1;
 
     //建立首符集
     Vntab.insert(pair<string,int>("program",0));
@@ -2997,6 +3031,8 @@ void init(){
     firsts[Vntab["decls"]].push_back(tok_read);
     firsts[Vntab["decls"]].push_back(tok_writef);
     firsts[Vntab["decls"]].push_back(tok_readf);
+    firsts[Vntab["decls"]].push_back(tok_continue);
+    firsts[Vntab["decls"]].push_back(tok_break);
     firsts[Vntab["decls"]].push_back(tok_lbrace);
     firsts[Vntab["decls"]].push_back(tok_rbrace); //加上program 结尾的}
     firsts[Vntab["decl"]].push_back(tok_bool); //
@@ -3013,6 +3049,8 @@ void init(){
     firsts[Vntab["stmts"]].push_back(tok_read);
     firsts[Vntab["stmts"]].push_back(tok_writef);
     firsts[Vntab["stmts"]].push_back(tok_readf);
+    firsts[Vntab["stmts"]].push_back(tok_continue);
+    firsts[Vntab["stmts"]].push_back(tok_break);
     firsts[Vntab["stmts"]].push_back(tok_lbrace);
     firsts[Vntab["stmts"]].push_back(tok_rbrace); //加上program 结尾的}
     firsts[Vntab["stmt"]].push_back(tok_identifier); //
@@ -3027,6 +3065,8 @@ void init(){
     firsts[Vntab["stmt"]].push_back(tok_read);
     firsts[Vntab["stmt"]].push_back(tok_writef);
     firsts[Vntab["stmt"]].push_back(tok_readf);
+    firsts[Vntab["stmt"]].push_back(tok_continue);
+    firsts[Vntab["stmt"]].push_back(tok_break);
     firsts[Vntab["stmt"]].push_back(tok_lbrace);
     firsts[Vntab["intexpr"]].push_back(tok_identifier); //
     firsts[Vntab["intexpr"]].push_back(tok_intnum);

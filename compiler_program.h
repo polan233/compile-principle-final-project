@@ -27,6 +27,8 @@ enum Token {
     tok_for=-12,
     tok_switch=-13,
     tok_case=-14,
+    tok_continue=-15,
+    tok_break=-16,
 
     //symbols
     tok_add = -50, // +
@@ -89,13 +91,15 @@ struct tablestruct
 
 #define maxnamespace 200 //最多有200个block
 
-
-
+#define fillbackCount 3 //break continue return
+#define fb_break 0
+#define fb_continue 1
+#define fb_return 2
 
 void enter(int name_space,int type,std::string name);
 void new_namespace(int father_namespace,int my_namespace); // 当进入一个block的时候调用,给这个block一个新的namespace,并根据block的参数设置上层namespace
 struct tablestruct& getTablestructById(int name_space,std::string name); // 按name和namespace查找,如果找不到,报错
-void fillback(int L);
+void fillback(int L,int fun,int lev);
 
 
 int gettok();
@@ -125,6 +129,8 @@ void write_stmt(int lev);
 void read_stmt(int lev);
 void writef_stmt(int lev);
 void readf_stmt(int lev);
+void continue_stmt(int lev);
+void break_stmt(int lev);
 void stmt(int lev);
 
 void intexpr(int lev); // expression with type int
@@ -146,7 +152,7 @@ void frel(int lev);
 void nega_rel(int lev);
 
 
-#define Vn_count 31
+#define Vn_count 33
 
 
 void error();
