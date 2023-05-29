@@ -45,7 +45,9 @@ int dxs[maxnamespace];
 std::vector<std::vector<int>> fillbackList_break(maxnamespace);
 std::vector<std::vector<int>> fillbackList_continue(maxnamespace);
 std::vector<std::vector<int>> fillbackList_return(maxnamespace);
-int nestbc=-1;
+int nestbreak=-1;
+int nestcontinue=-1;
+int nestreturn=-1;
 
 int PC=0;
 int LR=0;
@@ -534,6 +536,12 @@ void error(int n){
         case 33:
             fprintf(ferr,"line%d:%d err%d: Expect a : after case!\n",preline,precc-1,n);
             break;
+        case 34:
+            fprintf(ferr,"line%d:%d err%d: Unexpected break!\n",preline,precc-1,n);
+            break;
+        case 35:
+            fprintf(ferr,"line%d:%d err%d: Unexpected continue!\n",preline,precc-1,n);
+            break;
     }
     err = err + 1;
 }
@@ -814,7 +822,9 @@ void stmts(int my_lev){
            CurTok==tok_write||CurTok==tok_read||CurTok==tok_lbrace
             ||CurTok==tok_writef||CurTok==tok_readf
             ||CurTok==tok_selfadd||CurTok==tok_selfmin
-            ||CurTok==tok_for||CurTok==tok_switch){
+            ||CurTok==tok_for||CurTok==tok_switch
+            ||CurTok==tok_break||CurTok==tok_continue
+          ){
         if(err >= maxerr){
             return;
         }
@@ -1157,13 +1167,54 @@ void if_stmt(int my_lev){
     }
 }
 
-//cha yan
+//to-do 完成break 和 continue
+//可以在switchcase while for中使用
+void break_stmt(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
+    if(nestbreak<0){
+        error(34);
+        return;
+    }
+    getNextToken(); //eat break
+    if(CurTok!=tok_semicolon){
+        error(2);
+        return;
+    }
+    getNextToken(); // eat ;
+    fillbackList_break[nestbreak].push_back(cx);
+    //在这里生成一个跳转语句
+    //跳转地址会在对应的块处理完毕之后回填
+    gen(jmp,0,0);
+    return;
+}
+
+void continue_stmt(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
+    if(nestcontinue<0){
+        error(35);
+        return;
+    }
+    getNextToken(); //eat continue
+    if(CurTok!=tok_semicolon){
+        error(2);
+        return;
+    }
+    getNextToken(); // eat ;
+    fillbackList_continue[nestcontinue].push_back(cx);
+    gen(jmp,0,0);
+    return;
+}
+
 void switchcase_stmt(int my_lev){
     if(err >= maxerr){
         return;
     }
     getNextToken();//eat switch
-    nestbc++;
+    nestbreak++;
 
     if(CurTok!=tok_lparen){
         error(7);
@@ -1214,7 +1265,7 @@ void switchcase_stmt(int my_lev){
         getNextToken(); //eat :
 
         block(my_lev);
-        fillbackList_break[nestbc].push_back(cx);
+        fillbackList_break[nestbreak].push_back(cx);
         gen(jmp,0,0);
     }
 
@@ -1224,8 +1275,8 @@ void switchcase_stmt(int my_lev){
     }
     getNextToken(); // eat }
     code[c1].a=cx; //给上一个case回填跳转地址
-    fillback(cx,fb_break,nestbc); //给之前的block回填跳出switch case 块的地址
-    nestbc--;
+    fillback(cx,fb_break,nestbreak); //给之前的block回填跳出switch case 块的地址
+    nestbreak--;
     gen(opr,0,30); //退出多的一个intexpr值
 
     return;
@@ -1236,7 +1287,9 @@ void while_stmt(int my_lev){
         return;
     }
     getNextToken(); //eat while
-    int l1=cx;
+    nestbreak++;
+    nestcontinue++;
+    int l1=cx; //l1为循环开始
     if(CurTok==tok_lparen){
         getNextToken(); // eat (
         boolexpr(my_lev);
@@ -1247,6 +1300,10 @@ void while_stmt(int my_lev){
             stmt(my_lev);
             gen(jmp,0,l1); //回到while开始
             code[cx0].a=cx; //让jpc 跳出循环
+            fillback(cx,fb_break,nestbreak); //将出循环的指令地址回填给break
+            fillback(l1,fb_continue,nestcontinue); //将回到循环开始的地址回填给continue
+            nestbreak--;
+            nestcontinue--;
             return;
         }else{
             //log_error("missing right paren!");
@@ -1266,6 +1323,8 @@ void for_stmt(int my_lev){
         return;
     }
     getNextToken(); //eat for
+    nestbreak++;
+    nestcontinue++;
     if(CurTok!=tok_lparen){
         error(7);
         return;
@@ -1287,7 +1346,7 @@ void for_stmt(int my_lev){
 
     getNextToken(); //eat ;
 
-    int ldo=cx;
+    int ldo=cx; //stmt中的continue应该跳转到 ldo
     assign_stmt(my_lev); //for循环每次循环后执行的
     gen(jmp,0,lcondition);
 
@@ -1301,11 +1360,15 @@ void for_stmt(int my_lev){
     stmt(my_lev);
     gen(jmp,0,ldo);
 
-    int lout=cx;
+    int lout=cx; //stmt中的break应该跳转到 lout
 
     code[cx1].a=(double)lout;
     code[cx2].a=(double)lloop;
 
+    fillback(ldo,fb_continue,nestcontinue);
+    fillback(lout,fb_break,nestbreak);
+    nestcontinue--;
+    nestbreak--;
     return;
 }
 
@@ -1480,6 +1543,14 @@ void stmt(int my_lev){
     }
     case tok_lbrace:{
         block(my_lev);
+        break;
+    }
+    case tok_break:{
+        break_stmt(my_lev);
+        break;
+    }
+    case tok_continue:{
+        continue_stmt(my_lev);
         break;
     }
     default:
@@ -2989,7 +3060,9 @@ void init(){
     fillbackList_continue.resize(maxnamespace);
     fillbackList_return.clear();
     fillbackList_return.resize(maxnamespace);
-    nestbc=-1;
+    nestbreak=-1;
+    nestcontinue=-1;
+    nestreturn=-1;
 
     //建立首符集
     Vntab.insert(pair<string,int>("program",0));
