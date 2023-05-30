@@ -45,6 +45,7 @@ int dxs[maxnamespace];
 std::vector<std::vector<int>> fillbackList_break(maxnamespace);
 std::vector<std::vector<int>> fillbackList_continue(maxnamespace);
 std::vector<std::vector<int>> fillbackList_return(maxnamespace);
+std::vector<int> fillbackList_exit(maxnamespace);
 int nestbreak=-1;
 int nestcontinue=-1;
 int nestreturn=-1;
@@ -180,6 +181,12 @@ int gettok(){
         }
         if(IdentifierStr=="continue"){
             return tok_continue;
+        }
+        if(IdentifierStr=="exit"){
+            return tok_exit;
+        }
+        if(IdentifierStr=="void"){
+            return tok_void;
         }
 
         return tok_identifier;
@@ -579,6 +586,13 @@ void fillback(int L,int fun,int lev){
         }
         fillbackList_return[lev].clear();
     }
+    else if(fun==fb_exit){
+        for(int i=0;i<fillbackList_exit.size();i++){
+            int c=fillbackList_exit[i];
+            code[c].a=(double)L;
+        }
+        fillbackList_exit.clear();
+    }
     return;
 }
 
@@ -588,23 +602,24 @@ void program(){
         return;
     }
     block(0);
+    fillback(cx-1,fb_exit,0); //跳到程序最后一个ssp
     //fprintf(ferr,"\n===parsed a program!===\n");
 }
 
-void block(int upper_namespace){ //lev 是上级namespace
+int block(int upper_namespace){ //lev 是上级namespace
     if(test("block")){
         error(16);
-        return;
+        return -1;
     }
     if(err >= maxerr){
-        return;
+        return -1;
     }
     if(namespacecount<maxnamespace-1){
         namespacecount++;
     }
     else{
         error(13);
-        return;
+        return -1;
     }
     int my_lev=namespacecount;
     new_namespace(upper_namespace,my_lev);
@@ -616,18 +631,18 @@ void block(int upper_namespace){ //lev 是上级namespace
         if(CurTok==tok_rbrace){
             getNextToken();
             gen(lsp,my_lev,0);
-            return;
+            return my_lev;
         }
         else{
             //log_error("missing right at the end of a block!");
             error(1);
-            return;
+            return -1;
         }
     }
     else{
         //log_error("missing left brace at the start of a block!");
         error(0);
-        return;
+        return -1;
     }
 }
 
@@ -823,7 +838,7 @@ void stmts(int my_lev){
             ||CurTok==tok_writef||CurTok==tok_readf
             ||CurTok==tok_selfadd||CurTok==tok_selfmin
             ||CurTok==tok_for||CurTok==tok_switch
-            ||CurTok==tok_break||CurTok==tok_continue
+            ||CurTok==tok_break||CurTok==tok_continue||CurTok==tok_exit
           ){
         if(err >= maxerr){
             return;
@@ -1167,7 +1182,20 @@ void if_stmt(int my_lev){
     }
 }
 
-//to-do 完成break 和 continue
+void exit_stmt(int my_lev){
+    if(err >= maxerr){
+        return;
+    }
+    getNextToken(); //eat exit
+    if(CurTok!=tok_semicolon){
+        error(2);
+        return;
+    }
+    getNextToken(); // eat ;
+    fillbackList_exit.push_back(cx);
+    gen(jmp,0,0);
+    return;
+}
 //可以在switchcase while for中使用
 void break_stmt(int my_lev){
     if(err >= maxerr){
@@ -1236,6 +1264,13 @@ void switchcase_stmt(int my_lev){
     }
     getNextToken(); //eat {
 
+    if(namespacecount<maxnamespace-1){
+        namespacecount++;
+    }
+    int lev=namespacecount;
+    new_namespace(my_lev,lev);
+    gen(ssp,lev,0);
+
     if(CurTok!=tok_case){
         error(9);
         return;
@@ -1277,8 +1312,8 @@ void switchcase_stmt(int my_lev){
     code[c1].a=cx; //给上一个case回填跳转地址
     fillback(cx,fb_break,nestbreak); //给之前的block回填跳出switch case 块的地址
     nestbreak--;
-    gen(opr,0,30); //退出多的一个intexpr值
-
+    gen(lsp,lev,0);//回收空间
+    gen(opr,0,30); //退出原本多的一个switch(里的值)
     return;
 }
 
@@ -1287,23 +1322,54 @@ void while_stmt(int my_lev){
         return;
     }
     getNextToken(); //eat while
-    nestbreak++;
-    nestcontinue++;
+    int hasBlock=0;
     int l1=cx; //l1为循环开始
     if(CurTok==tok_lparen){
         getNextToken(); // eat (
         boolexpr(my_lev);
         int cx0=cx;
+        int loopblocklev=0;
         gen(jpc,0,0); //跳出循环
         if(CurTok==tok_rparen){
             getNextToken(); //eat )
-            stmt(my_lev);
+
+            if(CurTok==tok_lbrace)
+                //循环体是block 我们允许使用break 否则不允许
+            {
+                nestbreak++;
+                nestcontinue++;
+                hasBlock=1;
+                loopblocklev=block(my_lev);
+            }
+
+            else {
+                hasBlock=0;
+                stmt(my_lev);
+            }
+
             gen(jmp,0,l1); //回到while开始
-            code[cx0].a=cx; //让jpc 跳出循环
-            fillback(cx,fb_break,nestbreak); //将出循环的指令地址回填给break
-            fillback(l1,fb_continue,nestcontinue); //将回到循环开始的地址回填给continue
-            nestbreak--;
-            nestcontinue--;
+
+
+            if(hasBlock)
+            {
+                int cx1=0;
+                int cx2=0;
+                fillback(cx,fb_break,nestbreak); //将出循环的指令地址回填给break
+                gen(lsp,loopblocklev,0); //break出来到这条指令,回收循环block堆栈
+                cx1=cx;
+                gen(jmp,0,0); //跳转到真的出循环
+                fillback(cx,fb_continue,nestcontinue); //将回到循环开始的地址回填给continue
+                gen(lsp,loopblocklev,0); //continue之后还是回收循环block堆栈
+                cx2=cx;
+                gen(jmp,0,l1); //跳转到循环开始
+                nestbreak--;
+                nestcontinue--;
+                code[cx0].a=cx; //让jpc 跳出循环
+                code[cx1].a=cx; //回填让break出来回收堆栈之后跳出循环
+            }
+            else{
+                code[cx0].a=cx; //让jpc 跳出循环
+            }
             return;
         }else{
             //log_error("missing right paren!");
@@ -1323,8 +1389,7 @@ void for_stmt(int my_lev){
         return;
     }
     getNextToken(); //eat for
-    nestbreak++;
-    nestcontinue++;
+
     if(CurTok!=tok_lparen){
         error(7);
         return;
@@ -1357,18 +1422,44 @@ void for_stmt(int my_lev){
     getNextToken(); //eat )
 
     int lloop=cx;
-    stmt(my_lev);
+    int loopblocklev=-1;
+    int hasBlock=0;
+    if(CurTok==tok_lbrace){
+        hasBlock=1;
+        nestbreak++;
+        nestcontinue++;
+        loopblocklev=block(my_lev);
+    }
+    else{
+        stmt(my_lev);
+    }
     gen(jmp,0,ldo);
 
-    int lout=cx; //stmt中的break应该跳转到 lout
 
-    code[cx1].a=(double)lout;
-    code[cx2].a=(double)lloop;
+    if(hasBlock){
+        fillback(cx,fb_break,nestbreak);
+        gen(lsp,loopblocklev,0);
+        int cx3=cx;
+        gen(jmp,0,0);
+        fillback(cx,fb_continue,nestcontinue);
+        gen(lsp,loopblocklev,0);
+        gen(jmp,0,ldo);
+        nestcontinue--;
+        nestbreak--;
 
-    fillback(ldo,fb_continue,nestcontinue);
-    fillback(lout,fb_break,nestbreak);
-    nestcontinue--;
-    nestbreak--;
+        int lout=cx; //stmt中的break应该跳转到 lout
+        code[cx1].a=(double)lout;
+        code[cx2].a=(double)lloop;
+        code[cx3].a=(double)lout;
+    }
+    else{
+        int lout=cx; //stmt中的break应该跳转到 lout
+        code[cx1].a=(double)lout;
+        code[cx2].a=(double)lloop;
+    }
+
+
+
     return;
 }
 
@@ -1551,6 +1642,10 @@ void stmt(int my_lev){
     }
     case tok_continue:{
         continue_stmt(my_lev);
+        break;
+    }
+    case tok_exit:{
+        exit_stmt(my_lev);
         break;
     }
     default:
@@ -3060,6 +3155,7 @@ void init(){
     fillbackList_continue.resize(maxnamespace);
     fillbackList_return.clear();
     fillbackList_return.resize(maxnamespace);
+    fillbackList_exit.clear();
     nestbreak=-1;
     nestcontinue=-1;
     nestreturn=-1;
@@ -3105,6 +3201,7 @@ void init(){
     firsts[Vntab["decls"]].push_back(tok_writef);
     firsts[Vntab["decls"]].push_back(tok_readf);
     firsts[Vntab["decls"]].push_back(tok_continue);
+    firsts[Vntab["decls"]].push_back(tok_exit);
     firsts[Vntab["decls"]].push_back(tok_break);
     firsts[Vntab["decls"]].push_back(tok_lbrace);
     firsts[Vntab["decls"]].push_back(tok_rbrace); //加上program 结尾的}
@@ -3123,6 +3220,7 @@ void init(){
     firsts[Vntab["stmts"]].push_back(tok_writef);
     firsts[Vntab["stmts"]].push_back(tok_readf);
     firsts[Vntab["stmts"]].push_back(tok_continue);
+    firsts[Vntab["stmts"]].push_back(tok_exit);
     firsts[Vntab["stmts"]].push_back(tok_break);
     firsts[Vntab["stmts"]].push_back(tok_lbrace);
     firsts[Vntab["stmts"]].push_back(tok_rbrace); //加上program 结尾的}
@@ -3139,6 +3237,7 @@ void init(){
     firsts[Vntab["stmt"]].push_back(tok_writef);
     firsts[Vntab["stmt"]].push_back(tok_readf);
     firsts[Vntab["stmt"]].push_back(tok_continue);
+    firsts[Vntab["stmt"]].push_back(tok_exit);
     firsts[Vntab["stmt"]].push_back(tok_break);
     firsts[Vntab["stmt"]].push_back(tok_lbrace);
     firsts[Vntab["intexpr"]].push_back(tok_identifier); //

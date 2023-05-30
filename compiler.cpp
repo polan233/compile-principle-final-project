@@ -197,8 +197,10 @@ void compiler:: compile(){
     ui->log->setPlainText(text);
     flog.close();
 
-    //清空数据栈
+    //清空数据栈和代码还有符号栈
     ui->stack->setPlainText("");
+    ui->pcode->setPlainText("");
+    ui->table->setPlainText("");
 
     if(err==0){
         //输出符号表
