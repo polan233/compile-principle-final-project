@@ -63,11 +63,12 @@ double s[stacksize]={0}; //栈
 //别的block 依次递增
 //upperNamespaces表示 block的上层namespace
 struct tablestruct temp_tablestruct;
+struct parameter temp_parameter;
 // 符号表
 std::vector<struct tablestruct> tables[maxnamespace];
 std::vector< std::vector<int> > upperNamespaces(maxnamespace,std::vector<int>(0)); //表示namespace的依赖 upperNamespaces[namespace] 中存namespace的上级命名空间
 int cantFindName=0;
-std::string typeName[typeCount]={"int","bool","float","iarr","farr"};
+std::string typeName[typeCount]={"int","bool","float","iarr","farr","vfun","ifun","ffun"};
 
 map<std::string,int> Vntab;
 vector<vector<int>> firsts(Vn_count,std::vector<int>(0));
@@ -187,6 +188,12 @@ int gettok(){
         }
         if(IdentifierStr=="void"){
             return tok_void;
+        }
+        if(IdentifierStr=="function"){
+            return tok_function;
+        }
+        if(IdentifierStr=="return"){
+            return tok_return;
         }
 
         return tok_identifier;
@@ -345,6 +352,10 @@ int gettok(){
     if(ch==';'){
         getch();
         return tok_semicolon;
+    }
+    if(ch==','){
+        getch();
+        return tok_comma;
     }
     if(ch==':'){
         getch();
@@ -549,6 +560,12 @@ void error(int n){
         case 35:
             fprintf(ferr,"line%d:%d err%d: Unexpected continue!\n",preline,precc-1,n);
             break;
+        case 36:
+            fprintf(ferr,"line%d:%d err%d: Unexpected function return type!\n",preline,precc-1,n);
+            break;
+        case 37:
+            fprintf(ferr,"line%d:%d err%d: Expect a case here!\n",preline,precc-1,n);
+            break;
     }
     err = err + 1;
 }
@@ -561,6 +578,13 @@ void enter(int name_space,int type,std::string name,int size,double val,int dx){
     temp_tablestruct.type=type;
     temp_tablestruct.name_space=name_space;
     temp_tablestruct.index=dx;
+    tables[name_space].push_back(temp_tablestruct);
+}
+void enterFunction(int name_space,int type,std::string name,std::vector<struct parameter> param_list){
+    temp_tablestruct.name=name;
+    temp_tablestruct.type=type;
+    temp_tablestruct.name_space=name_space;
+    temp_tablestruct.paramList=param_list;
     tables[name_space].push_back(temp_tablestruct);
 }
 
@@ -601,12 +625,12 @@ void program(){
         error(15);
         return;
     }
-    block(0);
+    block(0,returntype_notfunction);
     fillback(cx-1,fb_exit,0); //跳到程序最后一个ssp
     //fprintf(ferr,"\n===parsed a program!===\n");
 }
 
-int block(int upper_namespace){ //lev 是上级namespace
+int block(int upper_namespace,int returntype){ //lev 是上级namespace
     if(test("block")){
         error(16);
         return -1;
@@ -627,7 +651,7 @@ int block(int upper_namespace){ //lev 是上级namespace
     if(CurTok==tok_lbrace){
         getNextToken(); // eat {
         decls(my_lev);
-        stmts(my_lev);
+        stmts(my_lev,returntype);
         if(CurTok==tok_rbrace){
             getNextToken();
             gen(lsp,my_lev,0);
@@ -654,7 +678,7 @@ void decls(int my_lev){ // 参数为自己的namespace
     if(err >= maxerr){
         return;
     }
-    while(CurTok==tok_int||CurTok==tok_bool||CurTok==tok_float){
+    while(CurTok==tok_int||CurTok==tok_bool||CurTok==tok_float||CurTok==tok_function){
         decl(my_lev);
     }
     return;
@@ -818,6 +842,98 @@ void decl(int my_lev){
             return;
         }
     }
+    else if(CurTok==tok_function){ //定义一个方程
+        getNextToken(); //eat function
+        int returntype;
+        if(CurTok==tok_void||CurTok==tok_int||CurTok==tok_float)
+            returntype=CurTok;
+        else {
+            error(36);
+            return;
+        }
+        int blockreturntype=-1;
+        int functiontype=type_vfun;
+        switch (returntype) {
+            case tok_void:{
+                blockreturntype=returntype_void;
+                functiontype=type_vfun;
+                break;
+            }
+            case tok_int:{
+                blockreturntype=returntype_int;
+                functiontype=type_ifun;
+                break;
+            }
+            case tok_float:{
+                blockreturntype=returntype_float;
+                functiontype=type_ffun;
+                break;
+            }
+            default:
+                error(36);
+                return;
+        }
+        getNextToken(); //eat void int float
+
+        if(CurTok!=tok_identifier){
+            error(3);
+            return;
+        }
+        std::string functionname=IdentifierStr;
+
+        getNextToken(); //eat id
+
+        if(CurTok!=tok_lparen){
+            error(7);
+            return;
+        }
+        getNextToken(); //eat (
+
+        if(CurTok==tok_rparen){ //无参数
+            getNextToken(); //eat )
+            int functionlev;
+            std::vector<struct parameter> param_list(0);
+            enterFunction(my_lev,functiontype,functionname,param_list);
+            //对方程而言 val dx值是不用的
+            functionlev=block(my_lev,blockreturntype);
+        }
+        else if(CurTok==tok_int||CurTok==tok_float){ //有参数
+            std::vector<struct parameter> param_list(0);
+            int i=-1;
+            while(CurTok==tok_int||CurTok==tok_float){
+                int paramtype=CurTok;
+                getNextToken(); //eat int/float
+                if(CurTok!=tok_identifier){
+                    error(3);
+                    return;
+                }
+                std::string paramname=IdentifierStr;
+                temp_parameter.type=paramtype;
+                temp_parameter.name=paramname;
+                temp_parameter.dx=i;
+                i--;
+                param_list.push_back(temp_parameter);
+                getNextToken(); //eat id;
+                if(CurTok==tok_comma){
+                    getNextToken(); //eat ,
+                    if(CurTok==tok_int||CurTok==tok_float){
+                        continue;
+                    }
+                    else{
+                        error(4);
+                        return;
+                    }
+                }
+                else if(CurTok==tok_rparen){
+                    getNextToken(); //eat )
+                    enterFunction(my_lev,functiontype,functionname,param_list);
+                    int functionlev;
+                    functionlev=block(my_lev,blockreturntype);
+                }
+            }
+        }
+    }//end of function decl
+
     else{
         //log_error("unknown data type in declaration!");
         error(4);
@@ -825,7 +941,7 @@ void decl(int my_lev){
     }
 }
 
-void stmts(int my_lev){
+void stmts(int my_lev,int returntype){
     if(test("stmts")){
         error(18);
         return;
@@ -843,7 +959,7 @@ void stmts(int my_lev){
         if(err >= maxerr){
             return;
         }
-        stmt(my_lev);
+        stmt(my_lev,returntype);
     }
     return;
 }
@@ -877,7 +993,7 @@ struct tablestruct& getTablestructById(int name_space,std::string name){
 }
 
 
-void selfaddmin_stmt(int my_lev){
+void selfaddmin_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -946,7 +1062,7 @@ void selfaddmin_stmt(int my_lev){
     }
 }
 
-void assign_stmt(int my_lev){
+void assign_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1095,6 +1211,7 @@ void assign_stmt(int my_lev){
             }
             getNextToken(); //eat ;
             if(type==type_iarr){
+                gen(opr,0,29);
                 switch(op){
                     case tok_selfadd:
                     {
@@ -1135,7 +1252,7 @@ void assign_stmt(int my_lev){
 }
 
 
-void if_stmt(int my_lev){
+void if_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1152,7 +1269,7 @@ void if_stmt(int my_lev){
         //分别跳转到stmt后一句  跳转到 false-stmt的开头
         if(CurTok==tok_rparen){
             getNextToken();//eat )
-            stmt(my_lev);
+            stmt(my_lev,returntype);
             //这里的是 true-stmt,先不急gencode,需要在看了有没有else才能做
             if(CurTok==tok_else){
                 //有else
@@ -1160,7 +1277,7 @@ void if_stmt(int my_lev){
                 cx1=cx;
                 gen(jmp,0,0); // jmp L1
                 code[cx0].a=cx; //接下来是false-stmt的code,我们让上面的jpc跳转到这里,没毛病嗷~~
-                stmt(my_lev);
+                stmt(my_lev,returntype);
                 code[cx1].a=cx; //这里让jmp 跳出if else 块
                 return;
             }else{
@@ -1182,7 +1299,7 @@ void if_stmt(int my_lev){
     }
 }
 
-void exit_stmt(int my_lev){
+void exit_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1197,7 +1314,7 @@ void exit_stmt(int my_lev){
     return;
 }
 //可以在switchcase while for中使用
-void break_stmt(int my_lev){
+void break_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1218,7 +1335,7 @@ void break_stmt(int my_lev){
     return;
 }
 
-void continue_stmt(int my_lev){
+void continue_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1237,7 +1354,7 @@ void continue_stmt(int my_lev){
     return;
 }
 
-void switchcase_stmt(int my_lev){
+void switchcase_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1272,7 +1389,7 @@ void switchcase_stmt(int my_lev){
     gen(ssp,lev,0);
 
     if(CurTok!=tok_case){
-        error(9);
+        error(37);
         return;
     }
     int c1=-1;
@@ -1299,7 +1416,7 @@ void switchcase_stmt(int my_lev){
         }
         getNextToken(); //eat :
 
-        block(my_lev);
+        block(my_lev,returntype);
         fillbackList_break[nestbreak].push_back(cx);
         gen(jmp,0,0);
     }
@@ -1317,7 +1434,7 @@ void switchcase_stmt(int my_lev){
     return;
 }
 
-void while_stmt(int my_lev){
+void while_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1339,12 +1456,12 @@ void while_stmt(int my_lev){
                 nestbreak++;
                 nestcontinue++;
                 hasBlock=1;
-                loopblocklev=block(my_lev);
+                loopblocklev=block(my_lev,returntype);
             }
 
             else {
                 hasBlock=0;
-                stmt(my_lev);
+                stmt(my_lev,returntype);
             }
 
             gen(jmp,0,l1); //回到while开始
@@ -1384,7 +1501,7 @@ void while_stmt(int my_lev){
     }
 }
 
-void for_stmt(int my_lev){
+void for_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1396,7 +1513,7 @@ void for_stmt(int my_lev){
     }
     getNextToken(); //eat (
 
-    assign_stmt(my_lev); // for循环初始化语句
+    assign_stmt(my_lev,returntype); // for循环初始化语句
     int lcondition=cx;
 
     boolexpr(my_lev); // for循环条件
@@ -1412,7 +1529,7 @@ void for_stmt(int my_lev){
     getNextToken(); //eat ;
 
     int ldo=cx; //stmt中的continue应该跳转到 ldo
-    assign_stmt(my_lev); //for循环每次循环后执行的
+    assign_stmt(my_lev,returntype); //for循环每次循环后执行的
     gen(jmp,0,lcondition);
 
     if(CurTok!=tok_rparen){
@@ -1428,10 +1545,10 @@ void for_stmt(int my_lev){
         hasBlock=1;
         nestbreak++;
         nestcontinue++;
-        loopblocklev=block(my_lev);
+        loopblocklev=block(my_lev,returntype);
     }
     else{
-        stmt(my_lev);
+        stmt(my_lev,returntype);
     }
     gen(jmp,0,ldo);
 
@@ -1464,7 +1581,7 @@ void for_stmt(int my_lev){
 }
 
 
-void write_stmt(int my_lev){
+void write_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1483,7 +1600,7 @@ void write_stmt(int my_lev){
 }
 
 
-void read_stmt(int my_lev){
+void read_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1522,7 +1639,7 @@ void read_stmt(int my_lev){
     }
 }
 
-void writef_stmt(int my_lev){
+void writef_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1541,7 +1658,7 @@ void writef_stmt(int my_lev){
 }
 
 
-void readf_stmt(int my_lev){
+void readf_stmt(int my_lev,int returntype){
     if(err >= maxerr){
         return;
     }
@@ -1581,7 +1698,7 @@ void readf_stmt(int my_lev){
 }
 
 
-void stmt(int my_lev){
+void stmt(int my_lev,int returntype){
     if(test("stmt")){
         error(18);
         return;
@@ -1593,59 +1710,59 @@ void stmt(int my_lev){
     case tok_selfadd:
     case tok_selfmin:
     {
-        selfaddmin_stmt(my_lev);
+        selfaddmin_stmt(my_lev,returntype);
         break;
     }
     case tok_identifier:{
-        assign_stmt(my_lev);
+        assign_stmt(my_lev,returntype);
         break;
     }
     case tok_if:{
-        if_stmt(my_lev);
+        if_stmt(my_lev,returntype);
         break;
     }
     case tok_while:{
-        while_stmt(my_lev);
+        while_stmt(my_lev,returntype);
         break;
     }
     case tok_for:{
-        for_stmt(my_lev);
+        for_stmt(my_lev,returntype);
         break;
     }
     case tok_switch:{
-        switchcase_stmt(my_lev);
+        switchcase_stmt(my_lev,returntype);
         break;
     }
     case tok_write:{
-        write_stmt(my_lev);
+        write_stmt(my_lev,returntype);
         break;
     }
     case tok_read:{
-        read_stmt(my_lev);
+        read_stmt(my_lev,returntype);
         break;
     }
     case tok_writef:{
-        writef_stmt(my_lev);
+        writef_stmt(my_lev,returntype);
         break;
     }
     case tok_readf:{
-        readf_stmt(my_lev);
+        readf_stmt(my_lev,returntype);
         break;
     }
     case tok_lbrace:{
-        block(my_lev);
+        block(my_lev,returntype);
         break;
     }
     case tok_break:{
-        break_stmt(my_lev);
+        break_stmt(my_lev,returntype);
         break;
     }
     case tok_continue:{
-        continue_stmt(my_lev);
+        continue_stmt(my_lev,returntype);
         break;
     }
     case tok_exit:{
-        exit_stmt(my_lev);
+        exit_stmt(my_lev,returntype);
         break;
     }
     default:
@@ -3189,6 +3306,7 @@ void init(){
     firsts[Vntab["decls"]].push_back(tok_bool); //
     firsts[Vntab["decls"]].push_back(tok_int);
     firsts[Vntab["decls"]].push_back(tok_float);
+    firsts[Vntab["decls"]].push_back(tok_function);
     firsts[Vntab["decls"]].push_back(tok_identifier); // 加上stmt首符
     firsts[Vntab["decls"]].push_back(tok_selfadd);
     firsts[Vntab["decls"]].push_back(tok_selfmin);
@@ -3208,6 +3326,7 @@ void init(){
     firsts[Vntab["decl"]].push_back(tok_bool); //
     firsts[Vntab["decl"]].push_back(tok_int);
     firsts[Vntab["decl"]].push_back(tok_float);
+    firsts[Vntab["decl"]].push_back(tok_function);
     firsts[Vntab["stmts"]].push_back(tok_identifier); //
     firsts[Vntab["stmts"]].push_back(tok_selfadd);
     firsts[Vntab["stmts"]].push_back(tok_selfmin);

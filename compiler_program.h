@@ -31,6 +31,8 @@ enum Token {
     tok_break=-16,
     tok_exit=-17,
     tok_void=-18,
+    tok_function=-19,
+    tok_return=-20,
 
     //symbols
     tok_add = -50, // +
@@ -60,6 +62,7 @@ enum Token {
     tok_lbracket = -74, // [
     tok_rbracket = -75, // ]
     tok_colon = -76, // :
+    tok_comma = -77, //,
 
 
     //other
@@ -76,18 +79,28 @@ enum type{
     type_float,
     type_iarr,
     type_farr,
+    type_vfun,
+    type_ifun,
+    type_ffun,
 };
-#define typeCount 5
+#define typeCount 8
 
+struct parameter
+{
+    int type;
+    std::string name;
+    int dx;
+};
 
 struct tablestruct
 {
     std::string name;
     int type;
     double val;
-    int size; //需要分配的数据区空间,留给方程使用
+    int size; //大小
     int index; //在本namespace分配的堆栈中下标
     int name_space; //所处的namespace
+    std::vector<struct parameter> paramList; //方程使用
 };
 
 
@@ -99,7 +112,8 @@ struct tablestruct
 #define fb_return 2
 #define fb_exit 3
 
-void enter(int name_space,int type,std::string name);
+void enter(int name_space,int type,std::string name,int size,double val,int dx);
+void enterFunction(int name_space,int type,std::string name,std::vector<struct parameter> param_list);
 void new_namespace(int father_namespace,int my_namespace); // 当进入一个block的时候调用,给这个block一个新的namespace,并根据block的参数设置上层namespace
 struct tablestruct& getTablestructById(int name_space,std::string name); // 按name和namespace查找,如果找不到,报错
 void fillback(int L,int fun,int lev);
@@ -116,26 +130,31 @@ void error(int n);
 int test(std::string Vn_name);
 // parser declareation
 void program();
-int block(int upper_namespace);
+#define returntype_notfunction -1
+#define returntype_void 0
+#define returntype_int 1
+#define returntype_float 2
+
+int block(int upper_namespace,int returntype);
 
 void decls(int lev);
 void decl(int lev);
 
-void stmts(int lev);
-void selfaddmin_stmt(int lev);
-void assign_stmt(int lev);
-void if_stmt(int lev);
-void while_stmt(int lev);
-void for_stmt(int lev);
-void switchcase_stmt(int lev);
-void write_stmt(int lev);
-void read_stmt(int lev);
-void writef_stmt(int lev);
-void readf_stmt(int lev);
-void continue_stmt(int lev);
-void break_stmt(int lev);
-void exit_stmt(int lev);
-void stmt(int lev);
+void stmts(int lev,int returntype);
+void selfaddmin_stmt(int lev,int returntype);
+void assign_stmt(int lev,int returntype);
+void if_stmt(int lev,int returntype);
+void while_stmt(int lev,int returntype);
+void for_stmt(int lev,int returntype);
+void switchcase_stmt(int lev,int returntype);
+void write_stmt(int lev,int returntype);
+void read_stmt(int lev,int returntype);
+void writef_stmt(int lev,int returntype);
+void readf_stmt(int lev,int returntype);
+void continue_stmt(int lev,int returntype);
+void break_stmt(int lev,int returntype);
+void exit_stmt(int lev,int returntype);
+void stmt(int lev,int returntype);
 
 void intexpr(int lev); // expression with type int
 void intterm(int lev);

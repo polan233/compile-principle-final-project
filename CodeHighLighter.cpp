@@ -76,7 +76,7 @@ CodeHighLighter::CodeHighLighter(QTextDocument * parent): QSyntaxHighlighter(par
     color.setRgb(205,129,98);
     QBrush brush_kw(color,Qt::SolidPattern);
     QStringList keywords = {
-    "if","else","while","write","read","def","writef","readf","for","do","switch","case","continue","break","exit","function"
+    "if","else","while","write","read","def","writef","readf","for","do","switch","case","continue","break","exit","function","return"
     };
     //keywords mark as salmon3
     keywordFormat.setForeground(brush_kw);
