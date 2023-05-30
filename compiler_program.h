@@ -98,7 +98,7 @@ struct tablestruct
     int type;
     double val;
     int size; //大小
-    int index; //在本namespace分配的堆栈中下标
+    int index; //在本namespace分配的堆栈中下标 方程用这个表示指令地址
     int name_space; //所处的namespace
     std::vector<struct parameter> paramList; //方程使用
 };
@@ -113,7 +113,7 @@ struct tablestruct
 #define fb_exit 3
 
 void enter(int name_space,int type,std::string name,int size,double val,int dx);
-void enterFunction(int name_space,int type,std::string name,std::vector<struct parameter> param_list);
+void enterFunction(int name_space,int type,std::string name,std::vector<struct parameter> param_list,int L);
 void new_namespace(int father_namespace,int my_namespace); // 当进入一个block的时候调用,给这个block一个新的namespace,并根据block的参数设置上层namespace
 struct tablestruct& getTablestructById(int name_space,std::string name); // 按name和namespace查找,如果找不到,报错
 void fillback(int L,int fun,int lev);

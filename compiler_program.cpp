@@ -580,11 +580,12 @@ void enter(int name_space,int type,std::string name,int size,double val,int dx){
     temp_tablestruct.index=dx;
     tables[name_space].push_back(temp_tablestruct);
 }
-void enterFunction(int name_space,int type,std::string name,std::vector<struct parameter> param_list){
+void enterFunction(int name_space,int type,std::string name,std::vector<struct parameter> param_list,int L){
     temp_tablestruct.name=name;
     temp_tablestruct.type=type;
     temp_tablestruct.name_space=name_space;
     temp_tablestruct.paramList=param_list;
+    temp_tablestruct.index=L;
     tables[name_space].push_back(temp_tablestruct);
 }
 
@@ -893,15 +894,28 @@ void decl(int my_lev){
             getNextToken(); //eat )
             int functionlev;
             std::vector<struct parameter> param_list(0);
-            enterFunction(my_lev,functiontype,functionname,param_list);
+
+            //jmp 0 0
+            int cx1=cx;
+            gen(jmp,0,0); //跳过方程中的语句
+            enterFunction(my_lev,functiontype,functionname,param_list,cx);
             //对方程而言 val dx值是不用的
             functionlev=block(my_lev,blockreturntype);
+            code[cx1].a=(double)cx; //跳过方程的定义
         }
         else if(CurTok==tok_int||CurTok==tok_float){ //有参数
             std::vector<struct parameter> param_list(0);
             int i=-1;
             while(CurTok==tok_int||CurTok==tok_float){
-                int paramtype=CurTok;
+                int paramtype;
+                switch(CurTok){
+                    case tok_int:
+                        paramtype=type_int;
+                        break;
+                    case tok_float:
+                        paramtype=type_float;
+                        break;
+                }
                 getNextToken(); //eat int/float
                 if(CurTok!=tok_identifier){
                     error(3);
@@ -911,6 +925,7 @@ void decl(int my_lev){
                 temp_parameter.type=paramtype;
                 temp_parameter.name=paramname;
                 temp_parameter.dx=i;
+                enter(namespacecount+1,paramtype,paramname,1,0,i);
                 i--;
                 param_list.push_back(temp_parameter);
                 getNextToken(); //eat id;
@@ -926,9 +941,12 @@ void decl(int my_lev){
                 }
                 else if(CurTok==tok_rparen){
                     getNextToken(); //eat )
-                    enterFunction(my_lev,functiontype,functionname,param_list);
+                    int cx1=cx;
+                    gen(jmp,0,0);
+                    enterFunction(my_lev,functiontype,functionname,param_list,cx);
                     int functionlev;
                     functionlev=block(my_lev,blockreturntype);
+                    code[cx1].a=(double)cx; //回填跳过方程定义
                 }
             }
         }
