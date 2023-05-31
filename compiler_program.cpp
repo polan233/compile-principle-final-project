@@ -37,24 +37,30 @@ char filename[MAXLINE];
 
 int cx=0;
 struct instruction code[cxmax];
-std::string codeName[fctnum]={"lit","opr","lod","sto","cal","int","jmp","jpc","ssp","lsp","old","ost"};
+std::string codeName[fctnum]={"lit","opr","lod","sto","cal","int","jmp","jpc","ssp","lsp","old","ost",
+                              "rev","ret","pop"};
 
 int namespacecount=-1;
 int dxs[maxnamespace];
 
 std::vector<std::vector<int>> fillbackList_break(maxnamespace);
 std::vector<std::vector<int>> fillbackList_continue(maxnamespace);
-std::vector<std::vector<int>> fillbackList_return(maxnamespace);
+std::vector<int> return_labels(maxnamespace);
 std::vector<int> fillbackList_exit(maxnamespace);
 int nestbreak=-1;
 int nestcontinue=-1;
 int nestreturn=-1;
+std::vector<int> functionlev(0);
+std::vector<int> functionreturncnt(maxnamespace);
+
 
 int PC=0;
 int LR=0;
+vector<int> LRList(0);
 int SP=0; //空栈 SP指向下一个入栈口 栈顶元素为 SP-1
 
-int base[maxnamespace]={0};
+
+vector<vector<int>> base(maxnamespace);
 struct instruction curCode; //当前指令
 double s[stacksize]={0}; //栈
 
@@ -566,6 +572,15 @@ void error(int n){
         case 37:
             fprintf(ferr,"line%d:%d err%d: Expect a case here!\n",preline,precc-1,n);
             break;
+        case 38:
+            fprintf(ferr,"line%d:%d err%d: Expect at least one return stmt in a function!\n",preline,precc-1,n);
+            break;
+        case 39:
+            fprintf(ferr,"line%d:%d err%d: Parameter list does not match!\n",preline,precc-1,n);
+            break;
+        case 40:
+            fprintf(ferr,"line%d:%d err%d: Unexpected return statement!\n",preline,precc-1,n);
+            break;
     }
     err = err + 1;
 }
@@ -585,6 +600,7 @@ void enterFunction(int name_space,int type,std::string name,std::vector<struct p
     temp_tablestruct.type=type;
     temp_tablestruct.name_space=name_space;
     temp_tablestruct.paramList=param_list;
+    temp_tablestruct.size=param_list.size();
     temp_tablestruct.index=L;
     tables[name_space].push_back(temp_tablestruct);
 }
@@ -604,13 +620,13 @@ void fillback(int L,int fun,int lev){
         }
         fillbackList_continue[lev].clear();
     }
-    else if(fun==fb_return){
-        for(int i=0;i<fillbackList_return[lev].size();i++){
-            int c=fillbackList_return[lev][i];
-            code[c].a=(double)L;
-        }
-        fillbackList_return[lev].clear();
-    }
+//    else if(fun==fb_return){
+//        for(int i=0;i<fillbackList_return[lev].size();i++){
+//            int c=fillbackList_return[lev][i];
+//            code[c].a=(double)L;
+//        }
+//        fillbackList_return[lev].clear();
+//    }
     else if(fun==fb_exit){
         for(int i=0;i<fillbackList_exit.size();i++){
             int c=fillbackList_exit[i];
@@ -892,7 +908,7 @@ void decl(int my_lev){
 
         if(CurTok==tok_rparen){ //无参数
             getNextToken(); //eat )
-            int functionlev;
+
             std::vector<struct parameter> param_list(0);
 
             //jmp 0 0
@@ -900,8 +916,11 @@ void decl(int my_lev){
             gen(jmp,0,0); //跳过方程中的语句
             enterFunction(my_lev,functiontype,functionname,param_list,cx);
             //对方程而言 val dx值是不用的
-            functionlev=block(my_lev,blockreturntype);
+            functionlev.push_back(namespacecount+1);
+            block(my_lev,blockreturntype);
             code[cx1].a=(double)cx; //跳过方程的定义
+            functionlev.pop_back();
+            return;
         }
         else if(CurTok==tok_int||CurTok==tok_float){ //有参数
             std::vector<struct parameter> param_list(0);
@@ -929,6 +948,7 @@ void decl(int my_lev){
                 i--;
                 param_list.push_back(temp_parameter);
                 getNextToken(); //eat id;
+
                 if(CurTok==tok_comma){
                     getNextToken(); //eat ,
                     if(CurTok==tok_int||CurTok==tok_float){
@@ -944,9 +964,12 @@ void decl(int my_lev){
                     int cx1=cx;
                     gen(jmp,0,0);
                     enterFunction(my_lev,functiontype,functionname,param_list,cx);
-                    int functionlev;
-                    functionlev=block(my_lev,blockreturntype);
+
+                    functionlev.push_back(namespacecount+1);
+                    block(my_lev,blockreturntype);
                     code[cx1].a=(double)cx; //回填跳过方程定义
+                    functionlev.pop_back();
+                    return;
                 }
             }
         }
@@ -973,11 +996,26 @@ void stmts(int my_lev,int returntype){
             ||CurTok==tok_selfadd||CurTok==tok_selfmin
             ||CurTok==tok_for||CurTok==tok_switch
             ||CurTok==tok_break||CurTok==tok_continue||CurTok==tok_exit
+            ||CurTok==tok_return
           ){
         if(err >= maxerr){
             return;
         }
+
         stmt(my_lev,returntype);
+    }
+    if(functionlev.size()>0)
+    {
+        if(functionreturncnt[functionlev.back()]<=0
+                &&returntype!=returntype_notfunction){
+            if(returntype==returntype_void){
+                gen(ret,functionlev.back(),0);
+            }
+            else{
+                error(38);
+                return;
+            }
+        }
     }
     return;
 }
@@ -1262,6 +1300,46 @@ void assign_stmt(int my_lev,int returntype){
 
 
     }
+    else if(type==type_vfun){
+        if(CurTok!=tok_lparen){
+            error(7);
+            return;
+        }
+        getNextToken(); //eat (
+        for(int i=0;i<t.paramList.size();i++){
+            if(t.paramList[i].type==type_int){ //本参数是int
+                intexpr(my_lev);
+            }
+            else if (t.paramList[i].type==type_float) { //本参数是float
+                floatexpr(my_lev);
+            }
+            if(i<t.paramList.size()-1){
+                if(CurTok!=tok_comma){
+                    error(39);
+                    return;
+                }
+                getNextToken(); //eat ,
+                continue;
+            }
+        }
+        //上面将参数正向入栈了,接下来需要翻转一下
+        gen(rev,0,(double)t.paramList.size());
+        if(CurTok!=tok_rparen){
+            error(39);
+            return;
+        }
+        getNextToken(); //eat )
+        if(CurTok!=tok_semicolon){
+            error(2);
+            return;
+        }
+        getNextToken(); //eat ;
+        gen(cal,0,t.index);
+        gen(pop,0,t.paramList.size());
+
+    }
+
+
     else{
         error(4);
         return;
@@ -1448,7 +1526,7 @@ void switchcase_stmt(int my_lev,int returntype){
     fillback(cx,fb_break,nestbreak); //给之前的block回填跳出switch case 块的地址
     nestbreak--;
     gen(lsp,lev,0);//回收空间
-    gen(opr,0,30); //退出原本多的一个switch(里的值)
+    gen(pop,0,1); //退出原本多的一个switch(里的值)
     return;
 }
 
@@ -1715,6 +1793,53 @@ void readf_stmt(int my_lev,int returntype){
     }
 }
 
+void return_stmt(int my_lev,int returntype){
+    if(err >= maxerr){
+        return;
+    }
+    if(CurTok==tok_return){
+        functionreturncnt[functionlev.back()]++;
+    }
+    getNextToken(); //eat return
+    switch (returntype) {
+        case returntype_void:{
+            gen(ret,functionlev.back(),0);
+            if(CurTok!=tok_semicolon){
+                error(2);
+                return;
+            }
+            getNextToken(); //eat ;
+            break;
+        }
+        case returntype_int:{
+            intexpr(my_lev);
+            gen(ret,functionlev.back(),1);
+            if(CurTok!=tok_semicolon){
+                error(2);
+                return;
+            }
+            getNextToken(); //eat ;
+            break;
+        }
+        case returntype_float:{
+            floatexpr(my_lev);
+            gen(ret,functionlev.back(),1);
+            if(CurTok!=tok_semicolon){
+                error(2);
+                return;
+            }
+            getNextToken(); //eat ;
+            break;
+        }
+        case returntype_notfunction:
+        default:
+        {
+            error(40);
+            return;
+        }
+    }
+}
+
 
 void stmt(int my_lev,int returntype){
     if(test("stmt")){
@@ -1781,6 +1906,10 @@ void stmt(int my_lev,int returntype){
     }
     case tok_exit:{
         exit_stmt(my_lev,returntype);
+        break;
+    }
+    case tok_return:{
+        return_stmt(my_lev,returntype);
         break;
     }
     default:
@@ -1896,6 +2025,39 @@ void intfactor(int my_lev){
                     gen(opr,0,1); //栈顶取反
                     return;
                 }
+                else if(type==type_ifun){
+                    getNextToken(); //eat id
+                    if(CurTok!=tok_lparen){
+                        error(7);
+                        return;
+                    }
+                    getNextToken(); //eat (
+                    for(int i=0;i<t.paramList.size();i++){
+                        if(t.paramList[i].type==type_int){ //本参数是int
+                            intexpr(my_lev);
+                        }
+                        else if (t.paramList[i].type==type_float) { //本参数是float
+                            floatexpr(my_lev);
+                        }
+                        if(i<t.paramList.size()-1){
+                            if(CurTok!=tok_comma){
+                                error(39);
+                                return;
+                            }
+                            getNextToken(); //eat ,
+                            continue;
+                        }
+                    }
+                    //上面将参数正向入栈了,接下来需要翻转一下
+                    gen(rev,0,(double)t.paramList.size());
+                    if(CurTok!=tok_rparen){
+                        error(39);
+                        return;
+                    }
+                    getNextToken(); //eat )
+                    gen(cal,0,t.index);
+                    gen(pop,1,t.paramList.size()); //保留栈顶的返回值,退出参数
+                }
                 else{
                     error(25);
                     return;
@@ -1948,6 +2110,39 @@ void intfactor(int my_lev){
                 gen(old,t.name_space,t.index); //找到数组元素然后入栈
 
                 return;
+            }
+            else if(type==type_ifun){
+                getNextToken(); //eat id
+                if(CurTok!=tok_lparen){
+                    error(7);
+                    return;
+                }
+                getNextToken(); //eat (
+                for(int i=0;i<t.paramList.size();i++){
+                    if(t.paramList[i].type==type_int){ //本参数是int
+                        intexpr(my_lev);
+                    }
+                    else if (t.paramList[i].type==type_float) { //本参数是float
+                        floatexpr(my_lev);
+                    }
+                    if(i<t.paramList.size()-1){
+                        if(CurTok!=tok_comma){
+                            error(39);
+                            return;
+                        }
+                        getNextToken(); //eat ,
+                        continue;
+                    }
+                }
+                //上面将参数正向入栈了,接下来需要翻转一下
+                gen(rev,0,(double)t.paramList.size());
+                if(CurTok!=tok_rparen){
+                    error(39);
+                    return;
+                }
+                getNextToken(); //eat )
+                gen(cal,0,t.index);
+                gen(pop,1,t.paramList.size()); //保留栈顶的返回值,退出参数
             }
             else{
                 error(25);
@@ -2086,6 +2281,39 @@ void floatfactor(int my_lev){
                     gen(opr,0,1); //栈顶取反
                     return;
                 }
+                else if(type==type_ffun){
+                    getNextToken(); //eat id
+                    if(CurTok!=tok_lparen){
+                        error(7);
+                        return;
+                    }
+                    getNextToken(); //eat (
+                    for(int i=0;i<t.paramList.size();i++){
+                        if(t.paramList[i].type==type_int){ //本参数是int
+                            intexpr(my_lev);
+                        }
+                        else if (t.paramList[i].type==type_float) { //本参数是float
+                            floatexpr(my_lev);
+                        }
+                        if(i<t.paramList.size()-1){
+                            if(CurTok!=tok_comma){
+                                error(39);
+                                return;
+                            }
+                            getNextToken(); //eat ,
+                            continue;
+                        }
+                    }
+                    //上面将参数正向入栈了,接下来需要翻转一下
+                    gen(rev,0,(double)t.paramList.size());
+                    if(CurTok!=tok_rparen){
+                        error(39);
+                        return;
+                    }
+                    getNextToken(); //eat )
+                    gen(cal,0,t.index);
+                    gen(pop,1,t.paramList.size()); //保留栈顶的返回值,退出参数
+                }
                 else{
                     error(26);
                     return;
@@ -2139,6 +2367,39 @@ void floatfactor(int my_lev){
                 gen(old,t.name_space,t.index); //找到数组元素然后入栈
                 return;
 
+            }
+            else if(type==type_ffun){
+                getNextToken(); //eat id
+                if(CurTok!=tok_lparen){
+                    error(7);
+                    return;
+                }
+                getNextToken(); //eat (
+                for(int i=0;i<t.paramList.size();i++){
+                    if(t.paramList[i].type==type_int){ //本参数是int
+                        intexpr(my_lev);
+                    }
+                    else if (t.paramList[i].type==type_float) { //本参数是float
+                        floatexpr(my_lev);
+                    }
+                    if(i<t.paramList.size()-1){
+                        if(CurTok!=tok_comma){
+                            error(39);
+                            return;
+                        }
+                        getNextToken(); //eat ,
+                        continue;
+                    }
+                }
+                //上面将参数正向入栈了,接下来需要翻转一下
+                gen(rev,0,(double)t.paramList.size());
+                if(CurTok!=tok_rparen){
+                    error(39);
+                    return;
+                }
+                getNextToken(); //eat )
+                gen(cal,0,t.index);
+                gen(pop,1,t.paramList.size()); //保留栈顶的返回值,退出参数
             }
             else{
                 error(26);
@@ -2917,6 +3178,9 @@ void _exeOne(){
     if(PC<len){
         curCode=code[PC];
         PC++;
+        if(LRList.size()!=0){
+            LR=LRList.back();
+        }
         switch(curCode.f){
             case lit: //入栈常量a
                 s[SP]=curCode.a;
@@ -3182,6 +3446,11 @@ void _exeOne(){
                         SP--;
                         break;
                     }
+                    case 31: //从第二个开始退栈
+                    {
+                        SP--;
+                        break;
+                    }
 
 
 
@@ -3191,21 +3460,22 @@ void _exeOne(){
             case lod: //  lod namespace dx (load int/bool)
             //根据base 找到namespcae的基址 然后将 栈中对应位置值入栈
                 {
-                double val=s[base[curCode.l]+(int)curCode.a];
+                double val=s[base[curCode.l].back()+(int)curCode.a];
                 s[SP]=val;
                 SP++;
                 break;
                 }
             case sto: //sto namespace dx (store)
                 {
-                s[base[curCode.l]+(int)curCode.a] = s[SP-1];
+                s[base[curCode.l].back()+(int)curCode.a] = s[SP-1];
                 SP--;
                 break;
                 }
             case cal: //调用方程
                 {
-                break; //to-do 之后再来实现
-                LR=PC;
+                LRList.push_back(PC);
+                PC=(int)curCode.a;
+                break;
                 }
             case ini: //在数据栈中开辟a个单元
                 {
@@ -3228,12 +3498,13 @@ void _exeOne(){
                 }
             case ssp: // ssp namespace  store curSP in to base[namespace]
                 {
-                base[curCode.l]=SP;
+                base[curCode.l].push_back(SP);
                 break;
                 }
             case lsp: // lsp namespace load base[namespace] into SP
                 {
-                SP=base[curCode.l];
+                SP=base[curCode.l].back();
+                base[curCode.l].pop_back();
                 break;
                 }
             case old:
@@ -3241,7 +3512,7 @@ void _exeOne(){
                 {
                 int offset=s[SP-1];
                 SP--;
-                double val=s[base[curCode.l]+(int)curCode.a+offset];
+                double val=s[base[curCode.l].back()+(int)curCode.a+offset];
                 s[SP]=val;
                 SP++;
                 break;
@@ -3250,10 +3521,62 @@ void _exeOne(){
             //根据次顶的offset store
                 {
                 int offset=s[SP-2];
-                s[base[curCode.l]+(int)curCode.a+offset] = s[SP-1];
+                s[base[curCode.l].back()+(int)curCode.a+offset] = s[SP-1];
                 SP-=2;
                 break;
                 }
+            case rev:
+            //反转栈顶a个元素
+                {
+                vector<double> temp(0);
+                for(int i=0;i<curCode.a;i++){
+                    temp.push_back(s[SP-1]);
+                    SP--;
+                }
+                for(int i=0;i<temp.size();i++){
+                    s[SP]=temp[i];
+                    SP++;
+                }
+                break;
+                }
+            case ret: // a == 0 void return
+            //a ==1 return value
+            {
+
+                if(curCode.a==0)
+                {
+
+                    SP=base[curCode.l].back(); //回收堆栈空间
+                    base[curCode.l].pop_back();
+                    PC=LRList.back(); //return
+                    LRList.pop_back();
+                    break;
+                }
+                else{
+                    double temp=s[SP-1];
+                    SP=base[curCode.l].back(); //回收堆栈空间
+                    base[curCode.l].pop_back();
+                    s[SP]=temp;
+                    SP++;
+                    PC=LRList.back(); //return
+                    LRList.pop_back();
+                    break;
+                }
+
+            }
+
+            case pop: //pop i a i表示从栈顶向下第几个开始pop a表示退几个
+            {
+                vector<int> temp;
+                for(int i=0;i<curCode.l;i++){
+                    temp.push_back(s[SP-1-i]);
+                }
+                SP=SP-(int)curCode.a;
+                for(int i=0;i<curCode.l;i++){
+                    s[SP-1-i]=temp[i];
+                }
+                break;
+            }
         }
     }
 }
@@ -3273,12 +3596,19 @@ void init(){
     PC=0;
     SP=0;
     LR=0;
+    LRList.clear();
+    functionlev.clear();
+    functionreturncnt.clear();
+    functionreturncnt.resize(maxnamespace);
+
     for(int i=0;i<maxnamespace;i++){
         tables[i].clear();
         upperNamespaces[i].clear();
+        functionreturncnt[i]=0;
     }
     memset(code,0,sizeof(struct instruction)*cxmax);
-    memset(base,0,sizeof(int)*maxnamespace);
+    base.clear();
+    base.resize(maxnamespace);
     memset(s,0,sizeof(double)*stacksize);
     cantFindName=0;
     namespacecount=-1;
@@ -3288,8 +3618,8 @@ void init(){
     fillbackList_break.resize(maxnamespace);
     fillbackList_continue.clear();
     fillbackList_continue.resize(maxnamespace);
-    fillbackList_return.clear();
-    fillbackList_return.resize(maxnamespace);
+    return_labels.clear();
+    return_labels.resize(maxnamespace);
     fillbackList_exit.clear();
     nestbreak=-1;
     nestcontinue=-1;
@@ -3339,6 +3669,7 @@ void init(){
     firsts[Vntab["decls"]].push_back(tok_continue);
     firsts[Vntab["decls"]].push_back(tok_exit);
     firsts[Vntab["decls"]].push_back(tok_break);
+    firsts[Vntab["decls"]].push_back(tok_return);
     firsts[Vntab["decls"]].push_back(tok_lbrace);
     firsts[Vntab["decls"]].push_back(tok_rbrace); //加上program 结尾的}
     firsts[Vntab["decl"]].push_back(tok_bool); //
@@ -3359,6 +3690,7 @@ void init(){
     firsts[Vntab["stmts"]].push_back(tok_continue);
     firsts[Vntab["stmts"]].push_back(tok_exit);
     firsts[Vntab["stmts"]].push_back(tok_break);
+    firsts[Vntab["stmts"]].push_back(tok_return);
     firsts[Vntab["stmts"]].push_back(tok_lbrace);
     firsts[Vntab["stmts"]].push_back(tok_rbrace); //加上program 结尾的}
     firsts[Vntab["stmt"]].push_back(tok_identifier); //
@@ -3376,6 +3708,7 @@ void init(){
     firsts[Vntab["stmt"]].push_back(tok_continue);
     firsts[Vntab["stmt"]].push_back(tok_exit);
     firsts[Vntab["stmt"]].push_back(tok_break);
+    firsts[Vntab["stmt"]].push_back(tok_return);
     firsts[Vntab["stmt"]].push_back(tok_lbrace);
     firsts[Vntab["intexpr"]].push_back(tok_identifier); //
     firsts[Vntab["intexpr"]].push_back(tok_intnum);

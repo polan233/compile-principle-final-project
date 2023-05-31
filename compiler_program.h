@@ -154,6 +154,7 @@ void readf_stmt(int lev,int returntype);
 void continue_stmt(int lev,int returntype);
 void break_stmt(int lev,int returntype);
 void exit_stmt(int lev,int returntype);
+void return_stmt(int lev,int returntype);
 void stmt(int lev,int returntype);
 
 void intexpr(int lev); // expression with type int
@@ -175,7 +176,7 @@ void frel(int lev);
 void nega_rel(int lev);
 
 
-#define Vn_count 34
+#define Vn_count 35
 
 
 void error();
@@ -187,8 +188,9 @@ enum fct{
     sto, cal, ini,
     jmp, jpc, ssp,
     lsp, old, ost,
+    rev, ret, pop,
 };
-#define fctnum 12
+#define fctnum 15
 /*
  * lit 把一个常数置入栈顶
  * lod 把一个变量置入栈顶         lod namespace index
